@@ -9,6 +9,33 @@ type Explanation = string;
 
 function esc(s: string) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
 
+function hesc(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function c(s: string): string { return `<code>${hesc(s)}</code>`; }
+
+/** Extract content inside the outermost parens of keyword(...) */
+function extractCond(line: string, keyword: string): string | null {
+  if (!new RegExp(`^${keyword}\\s*\\(`).test(line)) return null;
+  const start = line.indexOf("(");
+  let depth = 0, i = start;
+  while (i < line.length) {
+    if (line[i] === "(") depth++;
+    else if (line[i] === ")") { depth--; if (depth === 0) return line.slice(start + 1, i); }
+    i++;
+  }
+  return null;
+}
+
+/** Pattern-match common condition idioms for extra context */
+function describeCondition(cond: string): string {
+  if (/mod\(.+,\s*2\.0?\s*\)\s*\)?\s*==\s*0/.test(cond))
+    return " — alternates on even values (interlaced row/frame pattern)";
+  if (/^iFrame\s*<\s*\d+$/.test(cond.trim()))
+    return " — true only during the first few frames (initialization guard)";
+  return "";
+}
+
 /** Strip a trailing ; and trim */
 function bare(s: string) { return s.replace(/;$/, "").trim(); }
 
@@ -26,8 +53,8 @@ function describeExpr(expr: string): string {
   if (fn) {
     const args = e.slice(fn.length).replace(/^\s*\(/, "").replace(/\)\s*$/, "");
     switch (fn) {
-      case "length":    return `the Euclidean length (magnitude) of ${args}`;
-      case "normalize": return `${args} scaled to unit length (direction only)`;
+      case "length":    return `the Euclidean length (magnitude) of ${c(args)}`;
+      case "normalize": return `${c(args)} scaled to unit length (direction only)`;
       case "distance":  return `the distance between the two points`;
       case "dot":       return `the dot product of the two vectors`;
       case "cross":     return `the cross product — a vector perpendicular to both inputs`;
@@ -37,34 +64,34 @@ function describeExpr(expr: string): string {
       case "clamp":     return `the value clamped to the given range`;
       case "smoothstep":return `a smooth S-curve interpolation between the two edges`;
       case "step":      return `a hard threshold — 0 below edge, 1 above`;
-      case "fract":     return `the fractional part of ${args}`;
-      case "floor":     return `${args} rounded down to the nearest integer`;
-      case "ceil":      return `${args} rounded up to the nearest integer`;
-      case "abs":       return `the absolute value of ${args}`;
-      case "mod":       return `${args.split(",")[0].trim()} modulo ${args.split(",")[1]?.trim() ?? "…"}`;
-      case "sin":       return `the sine of ${args} (in radians)`;
-      case "cos":       return `the cosine of ${args} (in radians)`;
-      case "tan":       return `the tangent of ${args} (in radians)`;
-      case "pow":       return `${args.split(",")[0].trim()} raised to the power of ${args.split(",")[1]?.trim() ?? "…"}`;
-      case "sqrt":      return `the square root of ${args}`;
-      case "inversesqrt": return `1 / sqrt(${args}) — fast reciprocal square root`;
+      case "fract":     return `the fractional part of ${c(args)}`;
+      case "floor":     return `${c(args)} rounded down to the nearest integer`;
+      case "ceil":      return `${c(args)} rounded up to the nearest integer`;
+      case "abs":       return `the absolute value of ${c(args)}`;
+      case "mod":       return `${c(args.split(",")[0].trim())} modulo ${c(args.split(",")[1]?.trim() ?? "…")}`;
+      case "sin":       return `the sine of ${c(args)} (in radians)`;
+      case "cos":       return `the cosine of ${c(args)} (in radians)`;
+      case "tan":       return `the tangent of ${c(args)} (in radians)`;
+      case "pow":       return `${c(args.split(",")[0].trim())} raised to the power of ${c(args.split(",")[1]?.trim() ?? "…")}`;
+      case "sqrt":      return `the square root of ${c(args)}`;
+      case "inversesqrt": return `1 / sqrt(${c(args)}) — fast reciprocal square root`;
       case "max":       return `the larger of the two values`;
       case "min":       return `the smaller of the two values`;
-      case "sign":      return `the sign of ${args}: –1, 0, or 1`;
+      case "sign":      return `the sign of ${c(args)}: –1, 0, or 1`;
       case "texture2D": return `the texture color sampled at the given UV`;
       case "textureCube": return `the cubemap color sampled by the direction vector`;
       case "vec2": case "vec3": case "vec4":
-        return `a new ${fn} constructed from (${args})`;
+        return `a new ${c(fn)} constructed from (${c(args)})`;
       case "mat2": case "mat3": case "mat4":
-        return `a new ${fn} matrix`;
-      case "float": return `${args} cast to float`;
-      case "int":   return `${args} cast to int`;
+        return `a new ${c(fn)} matrix`;
+      case "float": return `${c(args)} cast to float`;
+      case "int":   return `${c(args)} cast to int`;
     }
   }
 
   // arithmetic patterns
   if (/[\+\-\*\/]/.test(e)) return "a computed value";
-  return e.length < 40 ? `the value ${e}` : "a computed expression";
+  return e.length < 40 ? `the value ${c(e)}` : "a computed expression";
 }
 
 // ── Main patterns ─────────────────────────────────────────────────────────────
@@ -88,8 +115,8 @@ export function explainLine(rawLine: string): Explanation {
     if (/^#define\s+(\w+)/.test(line)) {
       const m = line.match(/^#define\s+(\w+)(?:\s+(.+))?/);
       return m?.[2]
-        ? `Preprocessor constant: replaces every occurrence of '${m[1]}' with ${m[2]} before compilation.`
-        : `Preprocessor flag: defines '${m?.[1]}' as a compile-time marker (no value).`;
+        ? `Preprocessor constant: replaces every occurrence of ${c(m[1])} with ${c(m[2])} before compilation.`
+        : `Preprocessor flag: defines ${c(m?.[1] ?? "")} as a compile-time marker (no value).`;
     }
     if (/^#ifdef|^#ifndef|^#if/.test(line)) return "Conditional compilation — the following block is only included if the condition is true.";
     if (/^#else/.test(line)) return "Else branch of a conditional compilation block.";
@@ -118,8 +145,8 @@ export function explainLine(rawLine: string): Explanation {
         attribute: "per-vertex data from a buffer (GLSL ES 1.0)",
         varying:   "interpolated from the vertex shader to the fragment shader",
       };
-      if (init) return `Declares ${type} '${name}' as a ${qual} (${qualDesc[qual]}), initialized to ${describeExpr(init)}.`;
-      return `Declares ${type} '${name}' as a ${qual}: ${qualDesc[qual]}.`;
+      if (init) return `Declares ${c(type)} ${c(name)} as a ${qual} (${qualDesc[qual]}), initialized to ${describeExpr(init)}.`;
+      return `Declares ${c(type)} ${c(name)} as a ${qual}: ${qualDesc[qual]}.`;
     }
   }
 
@@ -127,7 +154,7 @@ export function explainLine(rawLine: string): Explanation {
   {
     const m = line.match(/^(?:const\s+)?(?:highp|mediump|lowp\s+)?(\w+)\s+(\w+)\s*;?$/);
     if (m && !["if","else","for","while","do","return"].includes(m[1])) {
-      return `Declares a ${m[1]} variable '${m[2]}' with no initial value.`;
+      return `Declares a ${c(m[1])} variable ${c(m[2])} with no initial value.`;
     }
   }
 
@@ -137,7 +164,7 @@ export function explainLine(rawLine: string): Explanation {
     if (m && !["if","else","for","while","do","return"].includes(m[1])) {
       const [, type, name, rhs] = m;
       const constTag = /^const\s/.test(line) ? "compile-time constant " : "";
-      return `Declares ${constTag}${type} '${name}' and sets it to ${describeExpr(rhs)}.`;
+      return `Declares ${constTag}${c(type)} ${c(name)} and sets it to ${describeExpr(rhs)}.`;
     }
   }
 
@@ -147,7 +174,7 @@ export function explainLine(rawLine: string): Explanation {
     if (m) {
       const [, lhs, op, rhs] = m;
       const opWord: Record<string, string> = { "+=": "adds", "-=": "subtracts", "*=": "multiplies by", "/=": "divides by" };
-      return `Updates '${lhs}' — ${opWord[op]} ${describeExpr(rhs)}.`;
+      return `Updates ${c(lhs)} — ${opWord[op]} ${describeExpr(rhs)}.`;
     }
   }
 
@@ -168,7 +195,7 @@ export function explainLine(rawLine: string): Explanation {
     const m = line.match(/^([\w.[\]]+)\s*=\s*(.+?);?$/);
     if (m) {
       const [, lhs, rhs] = m;
-      return `Assigns '${lhs}' to ${describeExpr(rhs)}.`;
+      return `Assigns ${c(lhs)} to ${describeExpr(rhs)}.`;
     }
   }
 
@@ -177,7 +204,7 @@ export function explainLine(rawLine: string): Explanation {
     const m = line.match(/^(\w+)\s*\((.+?)\)\s*;?$/);
     if (m) {
       const [, fn, args] = m;
-      return `Calls function '${fn}' with arguments (${args}).`;
+      return `Calls function ${c(fn)} with arguments (${c(args)}).`;
     }
   }
 
@@ -193,17 +220,20 @@ export function explainLine(rawLine: string): Explanation {
 
   // if / else / for / while
   {
-    const m = line.match(/^if\s*\((.+?)\)/);
-    if (m) return `Conditional branch — executes the next block only when (${m[1]}) is true.`;
+    const cond = extractCond(line, "if");
+    if (cond !== null) {
+      const hint = describeCondition(cond);
+      return `Conditional branch${hint} — executes next block when ${c(cond)} is true.`;
+    }
   }
   if (/^else\s*\{?/.test(line)) return "Executes the next block when the preceding if-condition was false.";
   {
-    const m = line.match(/^for\s*\((.+?)\)/);
-    if (m) return `Loop — iterates with (${m[1]}).`;
+    const cond = extractCond(line, "for");
+    if (cond !== null) return `Loop — iterates with ${c(cond)}.`;
   }
   {
-    const m = line.match(/^while\s*\((.+?)\)/);
-    if (m) return `Loop — repeats while (${m[1]}) is true.`;
+    const cond = extractCond(line, "while");
+    if (cond !== null) return `Loop — repeats while ${c(cond)} is true.`;
   }
   if (/^break\s*;?$/.test(line))    return "Exits the current loop immediately.";
   if (/^continue\s*;?$/.test(line)) return "Skips the rest of this loop iteration and starts the next.";
@@ -213,8 +243,9 @@ export function explainLine(rawLine: string): Explanation {
     const m = line.match(/^(\w+)\s+(\w+)\s*\(([^)]*)\)\s*\{?$/);
     if (m) {
       const [, ret, name, params] = m;
-      if (name === "main") return `Shader entry point — execution begins here. Returns ${ret}.`;
-      return `Defines function '${name}' that takes (${params || "no arguments"}) and returns ${ret}.`;
+      if (name === "main") return `Shader entry point — execution begins here. Returns ${c(ret)}.`;
+      if (name === "mainImage") return `Shadertoy entry point — ${c("fragColor")} is the output color, ${c("fragCoord")} is the pixel position. Built-in uniforms: ${c("iTime")}, ${c("iResolution")}, ${c("iFrame")}, ${c("iChannel0")}–${c("iChannel3")}.`;
+      return `Defines function ${c(name)} that takes (${params ? c(params) : "no arguments"}) and returns ${c(ret)}.`;
     }
   }
 

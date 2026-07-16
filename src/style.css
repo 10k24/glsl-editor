@@ -118,6 +118,54 @@ html, body, #app {
   outline: none;
 }
 
+/* ── Define panel ── */
+#define-panel {
+  flex-shrink: 0;
+  border-top: 1px solid #1a1d2e;
+  background: #0a0c10;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+#define-panel-label {
+  font-size: 0.75rem;
+  color: #565f89;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  flex-shrink: 0;
+}
+
+#define-list {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.define-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: #a9b1d6;
+}
+
+.define-row input {
+  width: 0.875rem;
+  height: 0.875rem;
+  accent-color: #7aa2f7;
+  cursor: pointer;
+}
+
+.define-row code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  color: #bb9af7;
+}
+
 /* ── Info panel ── */
 #info-panel {
   flex-shrink: 0;

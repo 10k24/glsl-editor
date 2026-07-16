@@ -2,6 +2,8 @@ import "./style.css";
 import { createEditor } from "./editor";
 import { createRenderer } from "./shader";
 import { createInfoPanel } from "./info-panel";
+import { createDefinePanel } from "./define-panel";
+import { preprocess } from "./glsl-preprocessor";
 
 const DEFAULT_SHADER = `precision mediump float;
 
@@ -21,10 +23,11 @@ void main() {
 }
 `;
 
-const editorPaneEl = document.getElementById("editor-pane")!;
-const editorCmEl   = document.getElementById("editor-cm")!;
-const infoPaneEl   = document.getElementById("info-panel")!;
-const canvas       = document.getElementById("canvas") as HTMLCanvasElement;
+const editorPaneEl  = document.getElementById("editor-pane")!;
+const editorCmEl    = document.getElementById("editor-cm")!;
+const definePaneEl  = document.getElementById("define-panel")!;
+const infoPaneEl    = document.getElementById("info-panel")!;
+const canvas        = document.getElementById("canvas") as HTMLCanvasElement;
 const statusOk     = document.getElementById("status-ok")!;
 const statusErr    = document.getElementById("status-err")!;
 const errorOverlay = document.getElementById("error-overlay")!;
@@ -35,9 +38,19 @@ const body         = document.getElementById("body")!;
 // ── Info panel ───────────────────────────────────────────
 const updateInfoPanel = createInfoPanel(infoPaneEl);
 
+// ── Define panel ─────────────────────────────────────────
+let activeDefineOverrides = new Map<string, boolean>();
+const updateDefinePanel = createDefinePanel(definePaneEl, (overrides) => {
+  activeDefineOverrides = overrides;
+  renderer?.updateShader(preprocess(editor.getDoc(), activeDefineOverrides));
+});
+
 // ── Editor ───────────────────────────────────────────────
 const editor = createEditor(editorCmEl, DEFAULT_SHADER, {
-  onChange: (doc) => scheduleUpdate(doc),
+  onChange: (doc) => {
+    updateDefinePanel(doc);
+    scheduleUpdate(preprocess(doc, activeDefineOverrides));
+  },
   onCursorLine: (lineText, lineNum) => updateInfoPanel(lineText, lineNum),
 });
 
@@ -70,7 +83,8 @@ function scheduleUpdate(src: string) {
 
 // ── Renderer ─────────────────────────────────────────────
 renderer = createRenderer(canvas, showError);
-renderer?.updateShader(DEFAULT_SHADER);
+updateDefinePanel(DEFAULT_SHADER);
+renderer?.updateShader(preprocess(DEFAULT_SHADER, activeDefineOverrides));
 
 // ── Trigger initial info panel for line 1 ────────────────
 updateInfoPanel(DEFAULT_SHADER.split("\n")[0], 1);

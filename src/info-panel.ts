@@ -35,7 +35,7 @@ export function createInfoPanel(container: HTMLElement): (lineText: string, line
     // ── Line explanation (always shown) ──────────────────
     const explanation = explainLine(trimmed);
     if (explanation) {
-      explainEl.textContent  = explanation;
+      explainEl.innerHTML = explanation;
       explainEl.style.opacity = "1";
     } else {
       explainEl.textContent  = `Line ${lineNum}`;
