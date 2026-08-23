@@ -1,6 +1,6 @@
 import { EditorState, Compartment, Prec } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers, highlightActiveLine } from "@codemirror/view";
-import { defaultKeymap, indentWithTab } from "@codemirror/commands";
+import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { StreamLanguage, bracketMatching, indentOnInput } from "@codemirror/language";
 import { shader } from "@codemirror/legacy-modes/mode/clike";
 import { oneDark } from "@codemirror/theme-one-dark";
@@ -95,11 +95,12 @@ export function createEditor(
         bracketMatching(),
         closeBrackets(),
         indentOnInput(),
+        history(),
         errorLinesField,
         errorGutter,
         Prec.highest(keymap.of([{ key: "Tab", run: acceptCompletion }])),
         Prec.high(keymap.of(completionKeymap)),
-        keymap.of([...defaultKeymap, indentWithTab]),
+        keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
         EditorView.lineWrapping,
         autocompleteComp.of([]),
         EditorView.updateListener.of((update) => {
