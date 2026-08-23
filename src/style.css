@@ -78,6 +78,24 @@ html, body, #app {
   cursor: pointer;
 }
 
+#reset-btn {
+  font-size: 1rem;
+  font-family: inherit;
+  color: #a9b1d6;
+  background: transparent;
+  border: 1px solid #2a2d3e;
+  border-radius: 4px;
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s, color 0.1s;
+}
+
+#reset-btn:hover {
+  color: #f7768e;
+  border-color: rgba(247, 118, 142, 0.4);
+  background: rgba(247, 118, 142, 0.08);
+}
+
 /* ── Body layout ── */
 #app {
   display: flex;
