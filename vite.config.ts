@@ -17,7 +17,8 @@ export default defineConfig({
   },
   root: path.resolve(import.meta.dirname),
   build: {
-    outDir: path.resolve(import.meta.dirname, "dist/public"),
+    // GitHub Pages serves the committed docs/ folder from main (same convention as 10k24.github.io)
+    outDir: path.resolve(import.meta.dirname, "docs"),
     emptyOutDir: true,
   },
   server: {

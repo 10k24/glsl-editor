@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GLSL Editor | 10k24 Studio</title>
+    <meta name="description" content="Browser-based GLSL shader editor with live WebGL preview. Shadertoy-compatible, with inline function docs, autocomplete, and real-time compile errors.">
+    <meta name="author" content="10k24 Studio">
+    <meta name="robots" content="index, follow">
+    <meta name="theme-color" content="#0d0f14">
+    <link rel="canonical" href="https://glsl.10k24.com/">
+
+    <meta property="og:url" content="https://glsl.10k24.com/" />
+    <meta property="og:title" content="GLSL Editor | 10k24 Studio" />
+    <meta property="og:image" content="https://glsl.10k24.com/img/opengraph.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Browser-based GLSL shader editor with live WebGL preview. Shadertoy-compatible, with inline function docs, autocomplete, and real-time compile errors." />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:site_name" content="10k24 Studio" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="GLSL Editor | 10k24 Studio" />
+    <meta name="twitter:description" content="Browser-based GLSL shader editor with live WebGL preview. Shadertoy-compatible, with inline function docs, autocomplete, and real-time compile errors." />
+    <meta name="twitter:image" content="https://glsl.10k24.com/img/opengraph.png" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+
+    <link rel="icon" type="image/png" href="/img/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/img/favicon.svg" />
+    <link rel="shortcut icon" href="/img/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/img/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-title" content="GLSL Editor" />
+    <link rel="manifest" href="/img/site.webmanifest" />
+    <script type="module" crossorigin src="/assets/index-BohFBTdO.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-CIGqxTVw.css">
+  </head>
+  <body>
+    <div id="app">
+      <header id="header">
+        <span id="logo">GLSL</span>
+        <span id="app-title">Shader Editor</span>
+        <div id="status">
+          <span id="status-ok" class="status-dot ok">● live</span>
+          <span id="status-err" class="status-dot err hidden">✕ compile error</span>
+        </div>
+        <div id="toolbar">
+          <label id="ac-toggle">
+            <input type="checkbox" id="ac-checkbox"> autocomplete
+          </label>
+        </div>
+      </header>
+      <div id="body">
+        <div id="editor-pane">
+          <div id="editor-cm"></div>
+          <div id="define-panel" class="hidden"></div>
+          <div id="info-panel"></div>
+        </div>
+        <div id="divider"></div>
+        <div id="preview-pane">
+          <canvas id="canvas"></canvas>
+          <div id="error-overlay" class="hidden"></div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

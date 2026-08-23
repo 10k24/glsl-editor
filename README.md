@@ -23,17 +23,18 @@ Shadertoy code and it just runs.
 bun install
 bun run dev        # dev server on :3000
 bun run typecheck  # tsc --noEmit
-bun run build      # production build → dist/public/
+bun run build      # production build → docs/
 bun run preview    # serve the production build
 ```
 
 ## Deployment
 
-`bun run build` outputs a static site to `dist/public/` (CNAME included). Deploy that directory —
-GitHub Pages serves it at [glsl.10k24.com](https://glsl.10k24.com).
+`bun run build` outputs the static site to `docs/` (CNAME + brand assets included). Commit `docs/`
+and push — GitHub Pages serves it from the `main` branch `/docs` folder at
+[glsl.10k24.com](https://glsl.10k24.com), same convention as [10k24.github.io](https://github.com/10k24/10k24.github.io).
 
-> Do not deploy the repo root: hosts serve `.ts` source as `video/mp2t`, which browsers refuse to
-> execute as module scripts.
+> Do not point Pages at the repo root: hosts serve `.ts` source as `video/mp2t`, which browsers
+> refuse to execute as module scripts.
 
 ## License
 
