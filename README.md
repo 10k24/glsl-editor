@@ -33,6 +33,9 @@ bun run preview    # serve the production build
 and push — GitHub Pages serves it from the `main` branch `/docs` folder at
 [glsl.10k24.com](https://glsl.10k24.com), same convention as [10k24.github.io](https://github.com/10k24/10k24.github.io).
 
+The committed `.nojekyll` marker tells Pages to skip its default Jekyll build, which would otherwise
+mangle the static output.
+
 > Do not point Pages at the repo root: hosts serve `.ts` source as `video/mp2t`, which browsers
 > refuse to execute as module scripts.
 
