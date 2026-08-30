@@ -1,6 +1,6 @@
 import { EditorState, Compartment, Prec } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers, highlightActiveLine } from "@codemirror/view";
-import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
+import { defaultKeymap, history, historyKeymap, indentWithTab, undo, redo } from "@codemirror/commands";
 import { StreamLanguage, bracketMatching, indentOnInput } from "@codemirror/language";
 import { shader } from "@codemirror/legacy-modes/mode/clike";
 import { oneDark } from "@codemirror/theme-one-dark";
@@ -133,6 +133,9 @@ export function createEditor(
     const lines = log ? parseErrorLines(log) : [];
     view.dispatch({ effects: setErrorLinesEffect.of(lines) });
   }
+
+  window.__cmUndo = () => undo(view);
+  window.__cmRedo = () => redo(view);
 
   return { view, setAutocomplete, setErrorLines, getDoc: () => view.state.doc.toString() };
 }

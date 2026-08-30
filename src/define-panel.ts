@@ -4,9 +4,14 @@ export { parseDefineFlags } from "./glsl-preprocessor";
 
 export function createDefinePanel(
   container: HTMLElement,
-  onToggle: (overrides: Map<string, boolean>) => void
-): (src: string) => void {
+  onToggle: (overrides: Map<string, boolean>) => void,
+): ((src: string) => void) & { setOverrides: (next: Map<string, boolean>) => void } {
   const overrides = new Map<string, boolean>();
+
+  function setOverrides(next: Map<string, boolean>) {
+    overrides.clear();
+    for (const [name, active] of next) overrides.set(name, active);
+  }
 
   function render(flags: Array<{ name: string; active: boolean }>) {
     if (flags.length === 0) {
@@ -48,11 +53,11 @@ export function createDefinePanel(
     }
   }
 
-  return function update(src: string) {
+  return Object.assign(function update(src: string) {
     const flags = parseDefineFlags(src);
     for (const name of overrides.keys()) {
       if (!flags.find(f => f.name === name)) overrides.delete(name);
     }
     render(flags);
-  };
+  }, { setOverrides });
 }

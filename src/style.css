@@ -78,7 +78,8 @@ html, body, #app {
   cursor: pointer;
 }
 
-#reset-btn {
+#reset-btn,
+#share-btn {
   font-size: 1rem;
   font-family: inherit;
   color: #a9b1d6;
@@ -94,6 +95,12 @@ html, body, #app {
   color: #f7768e;
   border-color: rgba(247, 118, 142, 0.4);
   background: rgba(247, 118, 142, 0.08);
+}
+
+#share-btn:hover {
+  color: #7aa2f7;
+  border-color: rgba(122, 162, 247, 0.4);
+  background: rgba(122, 162, 247, 0.08);
 }
 
 /* ── Body layout ── */

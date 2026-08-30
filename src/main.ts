@@ -4,6 +4,7 @@ import { createRenderer } from "./shader";
 import { createInfoPanel } from "./info-panel";
 import { createDefinePanel } from "./define-panel";
 import { preprocess } from "./glsl-preprocessor";
+import { decodeShare, encodeShare } from "./share";
 
 const DEFAULT_SHADER = `precision mediump float;
 
@@ -44,7 +45,10 @@ function storeDoc(doc: string) {
   }
 }
 
-const initialDoc = loadDoc() ?? DEFAULT_SHADER;
+// Precedence: shared link (#s=…) > localStorage > default. Hash decoding is async,
+// so boot renders the sync source and swaps when the payload arrives.
+const hasSharedLink = location.hash.startsWith("#s=");
+const initialDoc = hasSharedLink ? DEFAULT_SHADER : loadDoc() ?? DEFAULT_SHADER;
 
 const editorPaneEl  = document.getElementById("editor-pane")!;
 const editorCmEl    = document.getElementById("editor-cm")!;
@@ -96,12 +100,22 @@ function showError(msg: string | null) {
 // ── Debounced shader update ──────────────────────────────
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 let renderer: ReturnType<typeof createRenderer>;
+let hashWriteId = 0;
+
+// Monotonic guard: fast typing starts overlapping async encodes — only the
+// latest may touch the address bar, or a stale payload could win the race.
+async function updateLocationHash(src: string) {
+  const id = ++hashWriteId;
+  const payload = await encodeShare(src, activeDefineOverrides);
+  if (id === hashWriteId) history.replaceState(null, "", "#" + payload);
+}
 
 function scheduleUpdate(src: string) {
   if (debounceTimer) clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
     renderer?.updateShader(preprocess(src, activeDefineOverrides));
     storeDoc(src);
+    updateLocationHash(src);
   }, 280);
 }
 
@@ -112,6 +126,24 @@ renderer?.updateShader(preprocess(initialDoc, activeDefineOverrides));
 
 // ── Trigger initial info panel for line 1 ────────────────
 updateInfoPanel(initialDoc.split("\n")[0], 1);
+
+// ── Import shared link, if any ───────────────────────────
+if (hasSharedLink) {
+  decodeShare(location.hash).then((shared) => {
+    if (!shared) {
+      console.warn("Ignoring malformed share link in URL fragment");
+      return;
+    }
+    // Seed defines before dispatch so the recompile that the edit triggers
+    // already respects them.
+    activeDefineOverrides = shared.defines;
+    updateDefinePanel.setOverrides(shared.defines);
+    editor.view.dispatch({
+      changes: { from: 0, to: editor.view.state.doc.length, insert: shared.doc },
+      selection: { anchor: 0 },
+    });
+  });
+}
 
 // ── Autocomplete toggle ──────────────────────────────────
 acCheckbox.addEventListener("change", () => {
@@ -127,6 +159,19 @@ resetBtn.addEventListener("click", () => {
   editor.view.dispatch({
     changes: { from: 0, to: editor.view.state.doc.length, insert: DEFAULT_SHADER },
     selection: { anchor: 0 },
+  });
+});
+
+// ── Share (copy current URL — hash is already live) ──────
+const shareBtn = document.getElementById("share-btn")!;
+
+shareBtn.addEventListener("click", () => {
+  navigator.clipboard.writeText(location.href).then(() => {
+    const original = shareBtn.textContent;
+    shareBtn.textContent = "copied";
+    setTimeout(() => {
+      shareBtn.textContent = original;
+    }, 1200);
   });
 });
 

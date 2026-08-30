@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from "vite";
 import path from "path";
 
@@ -31,5 +32,8 @@ export default defineConfig({
     port,
     host: "0.0.0.0",
     allowedHosts: true,
+  },
+  test: {
+    exclude: ["**/e2e/**", "node_modules/**"],
   },
 });
