@@ -30,8 +30,8 @@ export function createInfoPanel(container: HTMLElement): (lineText: string, line
       explainEl.innerHTML = explanation;
       explainEl.style.opacity = "1";
     } else {
-      explainEl.textContent  = `Line ${lineNum}`;
-      explainEl.style.opacity = "0.5";
+      // If there's nothing to explain, clear it out
+      explainEl.textContent  = "";
     }
 
     // ── Token docs ────────────────────────────────────────
