@@ -44,7 +44,9 @@ Actionable open tasks for glsl.10k24.com, tracked here until they're scoped and 
 
 ---
 
-## 4. Toggle editor vs. presentation mode
+## 4. Toggle editor vs. presentation mode — DONE
+
+**Status:** ✅ Done. `#present-btn` (header toolbar) toggles a `presenting` class on `#app`, which hides the header/editor-pane/divider/footer so the canvas fills the window (it re-sizes itself each frame at `src/shader.ts:273`, so no manual resize). Exit via the floating `#exit-present-btn` or `Esc`. The exit button stays hidden until the first pointer move/tap, then fades out after 3s idle (`src/main.ts` reveal/hide timer + `src/style.css` opacity transition).
 
 **Goal:** Let users switch between the full editor view and a clean, distraction-free "presentation" mode that shows only the rendered shader output.
 
@@ -151,3 +153,19 @@ Actionable open tasks for glsl.10k24.com, tracked here until they're scoped and 
 - **Defines grammar** scanned twice inside `src/glsl-preprocessor.ts` (`parseDefineFlags` at :21–40 and `preprocess` at :118–135), including the duplicated `// #define` comment rule. `parseDefineFlags` should be the single grammar authority.
 - **`DocKind` → label mapping**: ✅ `KIND_LABELS` moved into `src/glsl-docs.ts` next to `DocKind` (info-panel imports it). ⬜ `CM_TYPE` in `src/glsl-completions.ts:4–10` maps `DocKind`→CM completion type and could also move beside the type.
 - **GLSL function-semantics text** re-described in both `src/line-explain.ts` (`describeExpr`, ~26 functions) and `src/glsl-docs.ts`; update one, the other drifts. Unify the teaching content.
+
+---
+
+## 13. Autocomplete: suggest variable members (`.field` after a typed variable)
+
+**Goal:** Add member completion. When a user types `q.` (a variable of known type), offer that type's members. E.g. for `vec4 q = vec4(1.0);`, typing `q.` should suggest `x`, `y`, `z`, `w`, `r`, `g`, `b`, `a`, `s`, `t`, `p`, `q`, array access, etc.
+
+**Approach / notes:**
+- Current autocomplete (`src/glsl-completions.ts`) is keyword/function-only; extend it (or add a second completion source) that resolves the identifier left of the `.` to a declared variable's type.
+- Track in-scope variable declarations (name → type) as the user types — a lightweight GLSL parse of the current doc (regex/text scan, not a full parser; see existing parser scans in `src/glsl-preprocessor.ts`).
+- Member lists per type: `vecN` (component accessors, swizzling, array `[i]`), `matN`, `sampler2D` (`texture` isn't a member but may imply usage), structs can't be user-defined in Shadertoy, so built-in types cover most of it.
+- Files: `src/glsl-completions.ts` (add member source), `src/editor.ts` (register source), plus tests.
+
+**Open decisions:**
+- Handle copy-propagation / reassignment (e.g. `q = somethingElse` changes `q`'s type), or resolve to the first declaration only for v1.
+- Whether to include `matN` prototype-style members and array indexing suggestions, or just the simple vector component accessors first.

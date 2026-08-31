@@ -64,6 +64,29 @@ test("persisted non-default doc seeds share hash on load", async ({ page }) => {
   await expect.poll(() => page.evaluate(() => location.hash)).toContain("#s=");
 });
 
+test("opening a share link keeps a shareable URL (Share works immediately)", async ({ browser }) => {
+  // Build a real share URL in a helper context.
+  const src = await browser.newContext();
+  const p = await src.newPage();
+  await p.goto("/");
+  await setContent(p, "// given hash link");
+  await p.waitForTimeout(DEBOUNCE_AND_ENCODE_MS);
+  const shareUrl = p.url();
+  expect(shareUrl).toContain("#s=");
+  await src.close();
+
+  // Receiver: open the link, then Share immediately — the URL must keep a hash.
+  const ctx = await browser.newContext();
+  await ctx.grantPermissions(["clipboard-read", "clipboard-write"]);
+  const page = await ctx.newPage();
+  await page.goto(shareUrl);
+  await expect(page.locator(EDITOR)).toContainText("// given hash link");
+  await page.click("#share-btn");
+  await expect.poll(() =>
+    page.evaluate(() => navigator.clipboard.readText())
+  ).toContain("#s=");
+});
+
 test("default shader on fresh load leaves share hash empty", async ({ page }) => {
   // Stock default content must not clutter the URL with a share hash.
   await page.goto("/");

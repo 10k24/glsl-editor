@@ -120,7 +120,9 @@ html, body, #app {
    Share is the filled .btn (white on black), Reset/Pause are .btn-outline (black on white). */
 #reset-btn,
 #share-btn,
-#pause-btn {
+#pause-btn,
+#present-btn,
+#exit-present-btn {
   display: block;
   min-width: 4rem;
   text-align: center;
@@ -140,15 +142,48 @@ html, body, #app {
 }
 
 #reset-btn,
-#pause-btn {
+#pause-btn,
+#present-btn {
   color: #ffffff;
   background: #000000;
 }
 
 #reset-btn:hover,
 #share-btn:hover,
-#pause-btn:hover {
+#pause-btn:hover,
+#present-btn:hover,
+#exit-present-btn:hover {
   opacity: 0.75;
+}
+
+/* ── Presentation mode ── */
+/* The exit button is a floating overlay, revealed on mouse move / tap so it
+   doesn't clutter a clean presentation; it fades out again after idle time. */
+#exit-present-btn {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 20;
+  color: #ffffff;
+  background: #000000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s;
+}
+
+#exit-present-btn.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Presenting: hide every chrome surface so the canvas fills the window. Hiding
+   the editor pane and divider lets the (flex:1) preview pane span full width.
+   The canvas resizes itself each frame, so no JS resize is needed. */
+#app.presenting #header,
+#app.presenting #editor-pane,
+#app.presenting #divider,
+#app.presenting #footer {
+  display: none;
 }
 
 /* ── Footer ── */

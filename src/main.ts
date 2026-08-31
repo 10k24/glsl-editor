@@ -188,5 +188,48 @@ shareBtn.addEventListener("click", () => {
   });
 });
 
+// ── Presentation mode ────────────────────────────────────
+// Full-bleed view of the shader: hide all chrome (header, editor, footer) and the
+// canvas resizes itself each frame, so no explicit resize is needed. A class on
+// #app drives the CSS cascade; Esc is a shortcut for the floating exit button.
+//
+// The exit button is hidden until the first pointer activity (mouse move / tap),
+// then it fades out again after a few seconds of stillness.
+const HIDE_EXIT_MS = 2000;
+
+const appEl          = document.getElementById("app")!;
+const presentBtn     = document.getElementById("present-btn")!;
+const exitPresentBtn = document.getElementById("exit-present-btn")!;
+let hideExitTimer: ReturnType<typeof setTimeout> | null = null;
+
+function revealExit() {
+  exitPresentBtn.classList.add("visible");
+  if (hideExitTimer) clearTimeout(hideExitTimer);
+  hideExitTimer = setTimeout(() => {
+    exitPresentBtn.classList.remove("visible");
+    hideExitTimer = null;
+  }, HIDE_EXIT_MS);
+}
+
+function setPresenting(on: boolean) {
+  appEl.classList.toggle("presenting", on);
+  if (on) {
+    document.addEventListener("pointermove", revealExit);
+    document.addEventListener("pointerdown", revealExit);
+  } else {
+    document.removeEventListener("pointermove", revealExit);
+    document.removeEventListener("pointerdown", revealExit);
+    if (hideExitTimer) clearTimeout(hideExitTimer);
+    hideExitTimer = null;
+    exitPresentBtn.classList.remove("visible");
+  }
+}
+
+presentBtn.addEventListener("click", () => setPresenting(true));
+exitPresentBtn.addEventListener("click", () => setPresenting(false));
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && appEl.classList.contains("presenting")) setPresenting(false);
+});
+
 // ── Resizable divider ────────────────────────────────────
 createDividerResizer(divider, body, editorPaneEl);
