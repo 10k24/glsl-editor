@@ -21,7 +21,7 @@ export function createInfoPanel(container: HTMLElement): (lineText: string, line
   const sigEl      = container.querySelector<HTMLElement>("#info-sig")!;
   const descEl     = container.querySelector<HTMLElement>("#info-desc")!;
 
-  function update(lineText: string, lineNum: number) {
+  function update(lineText: string) {
     const trimmed = lineText.trim();
 
     // ── Line explanation (always shown) ──────────────────
