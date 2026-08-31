@@ -194,7 +194,7 @@ shareBtn.addEventListener("click", () => {
 // #app drives the CSS cascade; Esc is a shortcut for the floating exit button.
 //
 // The exit button is hidden until the first pointer activity (mouse move / tap),
-// then it fades out again after a few seconds of stillness.
+// then it fades out again after stillness.
 const HIDE_EXIT_MS = 2000;
 
 const appEl          = document.getElementById("app")!;
