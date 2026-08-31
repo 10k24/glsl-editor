@@ -169,11 +169,20 @@ resetBtn.addEventListener("click", () => {
   editor.setDoc(DEFAULT_SHADER);
 });
 
-// ── Share (copy current URL — hash is already live) ──────
+// ── Share (copy the current shader's URL) ────────────────
+// The URL is built from the current doc + overrides here, not from the address
+// bar hash: the boot/autosave hash writes are async (encodeShare may compress),
+// so reading location.href could copy a stale or missing #s= link. Default
+// shader shares a clean URL with no hash.
 const shareBtn = document.getElementById("share-btn")!;
 
-shareBtn.addEventListener("click", () => {
-  navigator.clipboard.writeText(location.href).then(() => {
+shareBtn.addEventListener("click", async () => {
+  const doc = editor.getDoc();
+  const base = location.origin + location.pathname;
+  const url = doc === DEFAULT_SHADER
+    ? base
+    : base + "#" + await encodeShare(doc, activeOverrides());
+  navigator.clipboard.writeText(url).then(() => {
     const original = shareBtn.textContent;
     shareBtn.textContent = "Copied";
     setTimeout(() => {
