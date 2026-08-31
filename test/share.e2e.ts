@@ -23,19 +23,33 @@ test("malformed hash degrades to default shader", async ({ page }) => {
 });
 
 test("hash link opening does not overwrite localStorage of existing session", async ({ page, browser }) => {
-  // seed localStorage in context A
+  // Seed a distinctive saved doc and inspect it in this (receiver) context.
   await page.goto("/");
   const cm = page.locator(EDITOR);
   await setContent(page, "// context A work");
   await page.waitForTimeout(DEBOUNCE_AND_ENCODE_MS);
 
-  // capture share URL
-  const url = page.url();
+  const saved = await page.evaluate(() => localStorage.getItem("glsl-editor.doc"));
+  expect(saved).toContain("// context A work");
+
+  // Produce a share URL for a DIFFERENT doc from a separate context, so importing
+  // it into the receiver would be observable if it clobbered saved storage.
+  const src = await browser.newContext();
+  const p = await src.newPage();
+  await p.goto("/");
+  await setContent(p, "// shared shader");
+  await p.waitForTimeout(DEBOUNCE_AND_ENCODE_MS);
+  const url = p.url();
+  await src.close();
   expect(url).toContain("#s=");
 
-  // open in context B — A's localStorage untouched, just watching
-  const ctx2 = await browser.newContext();
-  const p2 = await ctx2.newPage();
+  // Open the shared link in a fresh page of the SAME context (shares origin +
+  // localStorage with the receiver) so the import runs against the seeded value.
+  const p2 = await page.context().newPage();
   await p2.goto(url);
-  await expect(p2.locator(EDITOR)).toContainText("// context A work");
+  await expect(p2.locator(EDITOR)).toContainText("// shared shader");
+
+  // The imported doc is shown, but the pre-existing saved value is untouched.
+  const after = await p2.evaluate(() => localStorage.getItem("glsl-editor.doc"));
+  expect(after).toBe(saved);
 });

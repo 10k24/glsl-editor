@@ -179,6 +179,21 @@ html, body, #app {
 
 /* ── Responsive header/footer ── */
 @media (max-width: 720px) {
+  #header {
+    gap: 12px;
+    padding: 0 12px;
+  }
+
+  #toolbar {
+    gap: 12px;
+  }
+
+  /* The Autocomplete toggle is the least-essential control; hiding it keeps the
+     fixed-height row from overflowing and clipping Pause/Reset/Share on phones. */
+  #ac-toggle {
+    display: none;
+  }
+
   #footer-links {
     gap: 12px;
   }

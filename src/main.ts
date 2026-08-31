@@ -57,8 +57,10 @@ const updateInfoPanel = createInfoPanel(infoPaneEl);
 // The panel owns the define overrides; main reads them via getOverrides() so
 // there is a single source of truth (no mirrored copy in this file).
 const updateDefinePanel = createDefinePanel(definePaneEl, () => {
-  // A define checkbox toggled — recompile immediately with the panel's state.
+  // A define checkbox toggled — recompile immediately with the panel's state and
+  // refresh the share hash so the define map stays in sync on the share link.
   renderer?.updateShader(preprocess(editor.getDoc(), updateDefinePanel.getOverrides()));
+  updateLocationHash(editor.getDoc());
 });
 
 // ── Editor ───────────────────────────────────────────────
@@ -83,6 +85,10 @@ function showError(msg: string | null) {
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 let renderer: ReturnType<typeof createRenderer>;
 let hashWriteId = 0;
+// Set to the doc text of an in-flight share import so its own autosave is
+// suppressed: importing a link must not clobber the user's previously saved work
+// in localStorage. The imported shader stays shareable via the URL hash.
+let importDoc: string | null = null;
 
 function activeOverrides() {
   return updateDefinePanel.getOverrides();
@@ -100,7 +106,9 @@ function scheduleUpdate(src: string) {
   if (debounceTimer) clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
     renderer?.updateShader(preprocess(src, activeOverrides()));
-    storeDoc(src);
+    // Persist every edit except the raw imported share doc (consumed once).
+    if (importDoc !== src) storeDoc(src);
+    importDoc = null;
     updateLocationHash(src);
   }, 280);
 }
@@ -129,6 +137,7 @@ if (hasSharedLink) {
     // Seed defines before the edit below so the recompile it triggers already
     // respects them.
     updateDefinePanel.setOverrides(shared.defines);
+    importDoc = shared.doc;
     editor.setDoc(shared.doc);
   });
 }
@@ -163,6 +172,12 @@ shareBtn.addEventListener("click", () => {
   navigator.clipboard.writeText(location.href).then(() => {
     const original = shareBtn.textContent;
     shareBtn.textContent = "Copied";
+    setTimeout(() => {
+      shareBtn.textContent = original;
+    }, 1200);
+  }).catch(() => {
+    const original = shareBtn.textContent;
+    shareBtn.textContent = "Copy failed";
     setTimeout(() => {
       shareBtn.textContent = original;
     }, 1200);
