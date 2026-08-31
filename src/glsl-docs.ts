@@ -1,5 +1,15 @@
 export type DocKind = "function" | "type" | "variable" | "keyword" | "qualifier";
 
+// Short display label for each doc kind, kept beside the type it describes so
+// the kind→label mapping lives with the source of truth rather than consumers.
+export const KIND_LABELS: Record<DocKind, string> = {
+  function:  "fn",
+  type:      "type",
+  variable:  "var",
+  qualifier: "qual",
+  keyword:   "kw",
+};
+
 export interface GlslDoc {
   kind: DocKind;
   signature?: string;

@@ -1,6 +1,12 @@
 import { StateEffect, StateField } from "@codemirror/state";
 import { EditorView, Decoration, DecorationSet, GutterMarker, gutter } from "@codemirror/view";
 
+// Class names shared with the editor's theme CSS (editor.ts) — single source of
+// truth so the decoration builders and the stylesheet stay in lockstep.
+export const ERROR_LINE_CLASS = "cm-error-line";
+export const ERROR_MARKER_CLASS = "cm-error-marker";
+export const ERROR_GUTTER_CLASS = "cm-error-gutter";
+
 // ── Effect to push new error line numbers into the editor ─────────────────────
 export const setErrorLinesEffect = StateEffect.define<number[]>();
 
@@ -8,7 +14,7 @@ export const setErrorLinesEffect = StateEffect.define<number[]>();
 class ErrorMarker extends GutterMarker {
   toDOM() {
     const el = document.createElement("span");
-    el.className = "cm-error-marker";
+    el.className = ERROR_MARKER_CLASS;
     el.textContent = "●";
     el.title = "Compile error on this line";
     return el;
@@ -37,7 +43,7 @@ export const errorLinesField = StateField.define<{ lines: number[]; decos: Decor
                   .sort((a, b) => a - b)
                   .map((n) => {
                     const from = tr.state.doc.line(n).from;
-                    return Decoration.line({ class: "cm-error-line" }).range(from);
+                    return Decoration.line({ class: ERROR_LINE_CLASS }).range(from);
                   })
               );
         return { lines, decos };
@@ -57,7 +63,7 @@ export const errorLinesField = StateField.define<{ lines: number[]; decos: Decor
 
 // ── Gutter extension: place the red dot marker on error lines ─────────────────
 export const errorGutter = gutter({
-  class: "cm-error-gutter",
+  class: ERROR_GUTTER_CLASS,
   lineMarker(view, line) {
     const { lines } = view.state.field(errorLinesField);
     if (lines.length === 0) return null;

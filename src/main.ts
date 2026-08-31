@@ -3,8 +3,11 @@ import { createEditor } from "./editor";
 import { createRenderer } from "./shader";
 import { createInfoPanel } from "./info-panel";
 import { createDefinePanel } from "./define-panel";
+import { createDividerResizer } from "./resizer";
+import { toggleHidden } from "./dom";
+import { loadDoc, storeDoc } from "./persistence";
 import { preprocess } from "./glsl-preprocessor";
-import { decodeShare, encodeShare } from "./share";
+import { decodeShare, encodeShare, isShareHash } from "./share";
 
 const DEFAULT_SHADER = `precision mediump float;
 
@@ -24,30 +27,9 @@ void main() {
 }
 `;
 
-// ── Local persistence ────────────────────────────────────
-// Best-effort save of the raw shader source so work survives reloads.
-// localStorage throws in some private-browsing modes; never let that break editing.
-const DOC_KEY = "glsl-editor.doc";
-
-function loadDoc(): string | null {
-  try {
-    return localStorage.getItem(DOC_KEY);
-  } catch {
-    return null;
-  }
-}
-
-function storeDoc(doc: string) {
-  try {
-    localStorage.setItem(DOC_KEY, doc);
-  } catch {
-    // storage unavailable — skip saving
-  }
-}
-
 // Precedence: shared link (#s=…) > localStorage > default. Hash decoding is async,
 // so boot renders the sync source and swaps when the payload arrives.
-const hasSharedLink = location.hash.startsWith("#s=");
+const hasSharedLink = isShareHash(location.hash);
 const initialDoc = hasSharedLink ? DEFAULT_SHADER : loadDoc() ?? DEFAULT_SHADER;
 
 const editorPaneEl  = document.getElementById("editor-pane")!;
@@ -62,20 +44,27 @@ const acCheckbox   = document.getElementById("ac-checkbox") as HTMLInputElement;
 const divider      = document.getElementById("divider")!;
 const body         = document.getElementById("body")!;
 
+const yearEl = document.getElementById("year")!;
+yearEl.textContent = String(new Date().getFullYear());
+
+const fpsEl    = document.getElementById("fps")!;
+const pauseBtn = document.getElementById("pause-btn")!;
+
 // ── Info panel ───────────────────────────────────────────
 const updateInfoPanel = createInfoPanel(infoPaneEl);
 
 // ── Define panel ─────────────────────────────────────────
-let activeDefineOverrides = new Map<string, boolean>();
-const updateDefinePanel = createDefinePanel(definePaneEl, (overrides) => {
-  activeDefineOverrides = overrides;
-  renderer?.updateShader(preprocess(editor.getDoc(), activeDefineOverrides));
+// The panel owns the define overrides; main reads them via getOverrides() so
+// there is a single source of truth (no mirrored copy in this file).
+const updateDefinePanel = createDefinePanel(definePaneEl, () => {
+  // A define checkbox toggled — recompile immediately with the panel's state.
+  renderer?.updateShader(preprocess(editor.getDoc(), updateDefinePanel.getOverrides()));
 });
 
 // ── Editor ───────────────────────────────────────────────
 const editor = createEditor(editorCmEl, initialDoc, {
   onChange: (doc) => {
-    updateDefinePanel(doc);
+    updateDefinePanel.update(doc);
     scheduleUpdate(doc);
   },
   onCursorLine: (lineText, lineNum) => updateInfoPanel(lineText, lineNum),
@@ -84,17 +73,10 @@ const editor = createEditor(editorCmEl, initialDoc, {
 // ── Error display ────────────────────────────────────────
 function showError(msg: string | null) {
   editor.setErrorLines(msg);
-  if (msg) {
-    statusOk.classList.add("hidden");
-    statusErr.classList.remove("hidden");
-    errorOverlay.textContent = msg;
-    errorOverlay.classList.remove("hidden");
-  } else {
-    statusOk.classList.remove("hidden");
-    statusErr.classList.add("hidden");
-    errorOverlay.classList.add("hidden");
-    errorOverlay.textContent = "";
-  }
+  toggleHidden(statusOk, !!msg);
+  toggleHidden(statusErr, !msg);
+  toggleHidden(errorOverlay, !msg);
+  errorOverlay.textContent = msg ?? "";
 }
 
 // ── Debounced shader update ──────────────────────────────
@@ -102,27 +84,37 @@ let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 let renderer: ReturnType<typeof createRenderer>;
 let hashWriteId = 0;
 
+function activeOverrides() {
+  return updateDefinePanel.getOverrides();
+}
+
 // Monotonic guard: fast typing starts overlapping async encodes — only the
 // latest may touch the address bar, or a stale payload could win the race.
 async function updateLocationHash(src: string) {
   const id = ++hashWriteId;
-  const payload = await encodeShare(src, activeDefineOverrides);
+  const payload = await encodeShare(src, activeOverrides());
   if (id === hashWriteId) history.replaceState(null, "", "#" + payload);
 }
 
 function scheduleUpdate(src: string) {
   if (debounceTimer) clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
-    renderer?.updateShader(preprocess(src, activeDefineOverrides));
+    renderer?.updateShader(preprocess(src, activeOverrides()));
     storeDoc(src);
     updateLocationHash(src);
   }, 280);
 }
 
 // ── Renderer ─────────────────────────────────────────────
-renderer = createRenderer(canvas, showError);
-updateDefinePanel(initialDoc);
-renderer?.updateShader(preprocess(initialDoc, activeDefineOverrides));
+renderer = createRenderer(canvas, showError, (fps) => {
+  // Tabular numerals avoid header width jitter as FPS changes. Only updates when
+  // the standalone <span id="fps" class="hidden"> completes its first frame,
+  // so it stays hidden while rendering is paused.
+  fpsEl.classList.remove("hidden");
+  fpsEl.textContent = `${fps} fps`;
+});
+updateDefinePanel.update(initialDoc);
+renderer?.updateShader(preprocess(initialDoc, activeOverrides()));
 
 // ── Trigger initial info panel for line 1 ────────────────
 updateInfoPanel(initialDoc.split("\n")[0], 1);
@@ -134,14 +126,10 @@ if (hasSharedLink) {
       console.warn("Ignoring malformed share link in URL fragment");
       return;
     }
-    // Seed defines before dispatch so the recompile that the edit triggers
-    // already respects them.
-    activeDefineOverrides = shared.defines;
+    // Seed defines before the edit below so the recompile it triggers already
+    // respects them.
     updateDefinePanel.setOverrides(shared.defines);
-    editor.view.dispatch({
-      changes: { from: 0, to: editor.view.state.doc.length, insert: shared.doc },
-      selection: { anchor: 0 },
-    });
+    editor.setDoc(shared.doc);
   });
 }
 
@@ -150,16 +138,22 @@ acCheckbox.addEventListener("change", () => {
   editor.setAutocomplete(acCheckbox.checked);
 });
 
+// ── Pause/resume rendering ───────────────────────────────
+pauseBtn.addEventListener("click", () => {
+  const running = pauseBtn.textContent === "Pause";
+  renderer?.setRunning(!running);
+  pauseBtn.textContent = running ? "Play" : "Pause";
+  pauseBtn.title = running ? "Resume rendering" : "Pause or resume rendering";
+  if (running) fpsEl.classList.add("hidden");
+});
+
 // ── Reset to default shader ──────────────────────────────
 const resetBtn = document.getElementById("reset-btn")!;
 
 resetBtn.addEventListener("click", () => {
   // Plain transaction (not state replacement) so undo history survives —
   // cmd+z restores the user's shader after a reset.
-  editor.view.dispatch({
-    changes: { from: 0, to: editor.view.state.doc.length, insert: DEFAULT_SHADER },
-    selection: { anchor: 0 },
-  });
+  editor.setDoc(DEFAULT_SHADER);
 });
 
 // ── Share (copy current URL — hash is already live) ──────
@@ -168,7 +162,7 @@ const shareBtn = document.getElementById("share-btn")!;
 shareBtn.addEventListener("click", () => {
   navigator.clipboard.writeText(location.href).then(() => {
     const original = shareBtn.textContent;
-    shareBtn.textContent = "copied";
+    shareBtn.textContent = "Copied";
     setTimeout(() => {
       shareBtn.textContent = original;
     }, 1200);
@@ -176,27 +170,4 @@ shareBtn.addEventListener("click", () => {
 });
 
 // ── Resizable divider ────────────────────────────────────
-let dragging = false;
-
-divider.addEventListener("mousedown", (e) => {
-  e.preventDefault();
-  dragging = true;
-  divider.classList.add("dragging");
-});
-
-window.addEventListener("mousemove", (e) => {
-  if (!dragging) return;
-  const rect = body.getBoundingClientRect();
-  const divW = divider.offsetWidth;
-  let px = e.clientX - rect.left - divW / 2;
-  px = Math.max(200, Math.min(rect.width - divW - 200, px));
-  editorPaneEl.style.width = px + "px";
-  editorPaneEl.style.flex = "none";
-});
-
-window.addEventListener("mouseup", () => {
-  if (dragging) {
-    dragging = false;
-    divider.classList.remove("dragging");
-  }
-});
+createDividerResizer(divider, body, editorPaneEl);

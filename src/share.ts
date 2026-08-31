@@ -10,6 +10,14 @@
 
 export const HAS_COMPRESSION = typeof CompressionStream !== "undefined";
 
+// The URL fragment prefix that marks a share link. Single source of truth for
+// the "#s=" contract — consumers check this instead of hardcoding the literal.
+const SHARE_PREFIX = "#s=";
+
+export function isShareHash(hash: string): boolean {
+  return hash.startsWith(SHARE_PREFIX);
+}
+
 export interface SharePayload {
   doc: string;
   defines: Map<string, boolean>;
@@ -61,7 +69,7 @@ export async function encodeShare(doc: string, defines: Map<string, boolean>): P
 }
 
 export async function decodeShare(hash: string): Promise<SharePayload | null> {
-  if (!hash.startsWith("#s=")) return null;
+  if (!isShareHash(hash)) return null;
   try {
     const params = new URLSearchParams(hash.slice(1));
     const s = params.get("s");

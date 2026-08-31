@@ -1,13 +1,5 @@
-import { findBestDocForLine, DocKind } from "./glsl-docs";
+import { findBestDocForLine, KIND_LABELS } from "./glsl-docs";
 import { explainLine } from "./line-explain";
-
-const KIND_LABELS: Record<DocKind, string> = {
-  function:  "fn",
-  type:      "type",
-  variable:  "var",
-  qualifier: "qual",
-  keyword:   "kw",
-};
 
 export function createInfoPanel(container: HTMLElement): (lineText: string, lineNum: number) => void {
   container.innerHTML = `

@@ -20,9 +20,9 @@ Actionable open tasks for glsl.10k24.com, tracked here until they're scoped and 
 
 ---
 
-## 2. Stop/start render controls
+## 2. Stop/start render controls — DONE
 
-**Goal:** Add stop/start buttons to pause and resume the `requestAnimationFrame` render loop in `src/shader.ts`.
+**Status:** ✅ Done. `renderer.setRunning(bool)` added to `src/shader.ts` (a user pause is respected even if the shader is edited — only the GPU-hang watchdog auto-resumes on edit). Toolbar `#pause-btn` toggles Pause/Play via `src/main.ts`. Default is running.
 
 **Approach:**
 - Give the renderer `setRunning(bool)` / `pause()` / `resume()` methods that cancel/restart the loop.
@@ -32,9 +32,9 @@ Actionable open tasks for glsl.10k24.com, tracked here until they're scoped and 
 
 ---
 
-## 3. Live FPS display in menu/navbar
+## 3. Live FPS display in menu/navbar — DONE
 
-**Goal:** Show a live FPS readout in the header/navbar, computed from frame deltas in the render loop.
+**Status:** ✅ Done. Renderer computes exponentially-smoothed FPS from frame deltas and reports it via an `onFps` callback only when the rounded value changes. Header `<span id="fps">` (hidden until the first frame) is updated in `src/main.ts`.
 
 **Approach:**
 - Renderer computes smoothed FPS from frame deltas and emits it via a callback (e.g. `onFps`).
@@ -59,7 +59,9 @@ Actionable open tasks for glsl.10k24.com, tracked here until they're scoped and 
 
 ---
 
-## 5. Bug — mobile: middle drag divider not touch-accessible
+## 5. Bug — mobile: middle drag divider not touch-accessible — DONE
+
+**Status:** ✅ Done. `src/resizer.ts` switched from mouse events to Pointer Events (`pointerdown/move/up/cancel` + `setPointerCapture`), unifying touch and mouse. CSS adds `touch-action: none` (so drags aren't hijacked by scroll/zoom) and an invisible `#divider::before` hit area (±8px around the 5px visual).
 
 **Problem:** On mobile/touch, the middle resize divider (`#divider`) is either too narrow to grab or doesn't respond to touch, making editor/preview resizing impossible on touch devices.
 
@@ -67,7 +69,9 @@ Actionable open tasks for glsl.10k24.com, tracked here until they're scoped and 
 - Widen the touch hit-target beyond the visual divider (e.g. a padded hit area / `touch-action: none` on the divider).
 - Add touch (`touchstart`/`touchmove`/`touchend`) handlers alongside the existing mouse handlers in `src/main.ts`.
 
-## 6. Bug — editor and preview must share height
+## 6. Bug — editor and preview must share height — DONE
+
+**Status:** ✅ Done. `#editor-cm` set to `flex: 1 1 0%; height: 0; min-height: 0` so the CodeMirror editor gets a definite height and the `.cm-scroller` scrolls internally; the editor pane always matches the preview pane height.
 
 **Problem:** The text editor area and the shader preview should always be the **same height**; when the content is taller, the text editor needs its own internal scroll. Currently they can diverge.
 
@@ -85,3 +89,65 @@ Actionable open tasks for glsl.10k24.com, tracked here until they're scoped and 
 - Reconcile header/footer structure, typography, and logo treatment with id.10k24.com.
 - **Roadmap:** extract the header/footer/branding into a shared 10k24 component library that all studio projects consume instead of duplicating.
 - **Flag:** id.10k24.com is a React/Vite app; this app is vanilla TS/Vite. The shared-library consolidation must resolve this framework mismatch.
+
+---
+
+## 8. Sleepless design system — rem layout cleanup (single source of truth)
+
+**Goal:** Stand up **Sleepless**, the 10k24 design system, as the single source of truth for CSS/design tokens that all studio projects consume. This glsl-editor is the seed/consumer.
+
+**Status:** Note-only for now. The concrete `px → rem` refactor and inconsistency cleanup is **deferred until Sleepless is planned**.
+
+**Approach / notes:**
+- Current `src/style.css` mixes `px` and `rem` units and mixes palettes (Tokyo-Night chrome leftovers vs the 10k24 black/white/`#F24E1E`/`#0ACF83` header/footer).
+- `src/index.css` (`tailwindcss` + `tw-animate-css`) is **dead code** — nothing imports it (`src/main.ts` imports only `style.css`). Remove it as part of the Sleepless cleanup.
+- Define tokens (spacing scale in `rem`, semantic colors, type scale) once; consume everywhere.
+
+---
+
+## 9. Remove non-adelle-mono fonts — DONE
+
+**Goal:** Audit and remove fonts that aren't `adelle-mono` so typography is consistent with the 10k24 brand.
+
+**Status:** ✅ Done. Built as `adelle-mono` everywhere.
+- Base/body font: `Inter` → `adelle-mono`.
+- Code editor + inline code (`.cm-editor`, `.define-row code`, `#info-token`/`#info-sig`, `#error-overlay`): `JetBrains Mono`/`Fira Code`/`Menlo` fallbacks → `adelle-mono`.
+- Removed the dead Google Fonts `Inter`/`JetBrains Mono` `<link>` from `index.html` (`adelle-mono` loads via the existing Typekit `rli7dce` link).
+- Defined `--font-mono: 'adelle-mono', monospace` once in `:root` (src/style.css:7) and referenced via `var(--font-mono)` at all 14 sites — single source of truth.
+- Decision recorded: code editor also uses `adelle-mono` (no separate code font).
+
+---
+
+## 10. Swap syntax-highlight theme to 10k24 (TBD)
+
+**Goal:** Replace the current CodeMirror Tokyo-Night scheme with a 10k24 syntax theme.
+
+**Approach / notes:**
+- Replace `oneDark` + the custom Tokyo-Night `baseTheme` in `src/editor.ts` (colors `#0d0f14`, `#7aa2f7`, `#9aa5ce`, etc.).
+- Covers editor surface, autocomplete tooltip, completion popups, error-line/gutter colors.
+- **Spec TBD** — pending the Sleepless palette.
+
+---
+
+## 11. Deferred — unify cross-file string contracts & palette (single source of truth)
+
+**Status:** Mostly done. `#s=`, `cm-error-*`, and `hidden` unified; `info-badge` + palette remain (tie into Sleepless, task 8).
+
+**Findings (from design-philosophy audit):**
+- ✅ **`#s=` share prefix** unified: `share.ts` now exports `isShareHash()` and both `share.ts` (decode) and `main.ts` use it.
+- ✅ **`cm-error-*` class strings** unified: `error-lines.ts` exports `ERROR_LINE_CLASS`/`ERROR_MARKER_CLASS`/`ERROR_GUTTER_CLASS`; `editor.ts` theme and `error-lines.ts` both import them.
+- ✅ **`hidden` class** unified: new `src/dom.ts` exports `toggleHidden()`; `main.ts` `showError()` and `define-panel.ts` `render()` use it. Single source for the class name.
+- ⬜ **`info-badge-${kind}` class names** produced in `src/info-panel.ts`, styled in `src/style.css`. (CSS selectors can't consume a TS constant, so unifying the *class-name* here yields no shared value; revisit if Sleepless introduces CSS custom classes.)
+- ⬜ **Color palette** (`#0d0f14`, `#7aa2f7`, `#f7768e`, …) duplicated across `src/editor.ts`, `src/style.css`, `src/index.css` (dead), and `index.html` meta theme-color. Pull into token variables (→ Sleepless).
+
+---
+
+## 12. Deferred — unify duplicated technical/content knowledge
+
+**Status:** Deferred out of the Tier-1 cleanup (content-level, higher test/risk impact).
+
+**Findings (from design-philosophy audit):**
+- **WebGL error-log format** parsed independently in `src/shader.ts:175` (`/ERROR:\s*(\d+):(\d+)/`) and `src/error-lines.ts:74` (`/ERROR:\s*\d+:(\d+)/`). Share one parser.
+- **Defines grammar** scanned twice inside `src/glsl-preprocessor.ts` (`parseDefineFlags` at :21–40 and `preprocess` at :118–135), including the duplicated `// #define` comment rule. `parseDefineFlags` should be the single grammar authority.
+- **`DocKind` → label mapping**: ✅ `KIND_LABELS` moved into `src/glsl-docs.ts` next to `DocKind` (info-panel imports it). ⬜ `CM_TYPE` in `src/glsl-completions.ts:4–10` maps `DocKind`→CM completion type and could also move beside the type.
+- **GLSL function-semantics text** re-described in both `src/line-explain.ts` (`describeExpr`, ~26 functions) and `src/glsl-docs.ts`; update one, the other drifts. Unify the teaching content.

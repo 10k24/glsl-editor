@@ -6,7 +6,7 @@ import { shader } from "@codemirror/legacy-modes/mode/clike";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { autocompletion, closeBrackets, completionKeymap, acceptCompletion } from "@codemirror/autocomplete";
 import { glslCompletionSource } from "./glsl-completions";
-import { setErrorLinesEffect, errorLinesField, errorGutter, parseErrorLines } from "./error-lines";
+import { ERROR_GUTTER_CLASS, ERROR_LINE_CLASS, ERROR_MARKER_CLASS, setErrorLinesEffect, errorLinesField, errorGutter, parseErrorLines } from "./error-lines";
 
 const glslLang = StreamLanguage.define(shader);
 const autocompleteComp = new Compartment();
@@ -28,13 +28,13 @@ const baseTheme = EditorView.theme({
     color: "#c0caf5",
   },
   // Error line decoration
-  ".cm-error-line": {
+  [`.${ERROR_LINE_CLASS}`]: {
     backgroundColor: "rgba(247, 118, 142, 0.08) !important",
     borderLeft: "3px solid #f7768e",
     paddingLeft: "13px !important",
   },
   // Error gutter marker
-  ".cm-error-gutter .cm-error-marker": {
+  [`.${ERROR_GUTTER_CLASS} .${ERROR_MARKER_CLASS}`]: {
     color: "#f7768e",
     fontSize: "0.6rem",
     lineHeight: "1",
@@ -119,6 +119,15 @@ export function createEditor(
     parent: container,
   });
 
+  function setDoc(text: string) {
+    // Plain transaction (not state replacement) so undo history survives —
+    // e.g. cmd+z restores the user's shader after a reset or share-link load.
+    view.dispatch({
+      changes: { from: 0, to: view.state.doc.length, insert: text },
+      selection: { anchor: 0 },
+    });
+  }
+
   function setAutocomplete(enabled: boolean) {
     view.dispatch({
       effects: autocompleteComp.reconfigure(
@@ -134,8 +143,13 @@ export function createEditor(
     view.dispatch({ effects: setErrorLinesEffect.of(lines) });
   }
 
-  window.__cmUndo = () => undo(view);
-  window.__cmRedo = () => redo(view);
+  // Test seam for CM6 history: headless Chromium doesn't emit the `beforeinput`
+  // events CM6's history() needs, so E2E can't drive undo/redo via Mod-z. Expose
+  // the commands on window only in dev (the E2E server); stripped from prod builds.
+  if (import.meta.env.DEV) {
+    window.__cmUndo = () => undo(view);
+    window.__cmRedo = () => redo(view);
+  }
 
-  return { view, setAutocomplete, setErrorLines, getDoc: () => view.state.doc.toString() };
+  return { view, setDoc, setAutocomplete, setErrorLines, getDoc: () => view.state.doc.toString() };
 }

@@ -7,8 +7,6 @@ type Explanation = string;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function esc(s: string) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
-
 function hesc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
@@ -35,9 +33,6 @@ function describeCondition(cond: string): string {
     return " — true only during the first few frames (initialization guard)";
   return "";
 }
-
-/** Strip a trailing ; and trim */
-function bare(s: string) { return s.replace(/;$/, "").trim(); }
 
 /** Try to name an rhs expression briefly */
 function describeExpr(expr: string): string {

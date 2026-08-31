@@ -1,11 +1,16 @@
 import { parseDefineFlags } from "./glsl-preprocessor";
+import { toggleHidden } from "./dom";
 
-export { parseDefineFlags } from "./glsl-preprocessor";
+export interface DefinePanel {
+  update: (src: string) => void;
+  setOverrides: (next: Map<string, boolean>) => void;
+  getOverrides: () => Map<string, boolean>;
+}
 
 export function createDefinePanel(
   container: HTMLElement,
-  onToggle: (overrides: Map<string, boolean>) => void,
-): ((src: string) => void) & { setOverrides: (next: Map<string, boolean>) => void } {
+  onToggle: () => void,
+): DefinePanel {
   const overrides = new Map<string, boolean>();
 
   function setOverrides(next: Map<string, boolean>) {
@@ -13,12 +18,13 @@ export function createDefinePanel(
     for (const [name, active] of next) overrides.set(name, active);
   }
 
+  function getOverrides() {
+    return new Map(overrides);
+  }
+
   function render(flags: Array<{ name: string; active: boolean }>) {
-    if (flags.length === 0) {
-      container.classList.add("hidden");
-      return;
-    }
-    container.classList.remove("hidden");
+    toggleHidden(container, flags.length === 0);
+    if (flags.length === 0) return;
     container.innerHTML = "";
 
     const label = document.createElement("span");
@@ -41,7 +47,7 @@ export function createDefinePanel(
       cb.checked = overrides.get(name)!;
       cb.addEventListener("change", () => {
         overrides.set(name, cb.checked);
-        onToggle(new Map(overrides));
+        onToggle();
       });
 
       const nameEl = document.createElement("code");
@@ -53,11 +59,13 @@ export function createDefinePanel(
     }
   }
 
-  return Object.assign(function update(src: string) {
+  function update(src: string) {
     const flags = parseDefineFlags(src);
     for (const name of overrides.keys()) {
       if (!flags.find(f => f.name === name)) overrides.delete(name);
     }
     render(flags);
-  }, { setOverrides });
+  }
+
+  return { update, setOverrides, getOverrides };
 }

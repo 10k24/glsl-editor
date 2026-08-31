@@ -57,7 +57,7 @@ export function preprocess(src: string, overrides: Map<string, boolean>): string
   }
 
   // Conditional stack: each entry tracks whether the current branch is active
-  type CondState = { active: boolean; seenTrue: boolean; done: boolean };
+  type CondState = { active: boolean; seenTrue: boolean };
   const stack: CondState[] = [];
 
   function isActive(): boolean {
@@ -76,7 +76,7 @@ export function preprocess(src: string, overrides: Map<string, boolean>): string
       // Skip if this name is controlled by overrides (already seeded into defines)
       const defined = defines.has(name);
       const active = isActive() && defined;
-      stack.push({ active, seenTrue: active, done: false });
+      stack.push({ active, seenTrue: active });
       out.push(""); // blank line preserves line numbers
       continue;
     }
@@ -85,7 +85,7 @@ export function preprocess(src: string, overrides: Map<string, boolean>): string
       const name = line.match(/^#ifndef\s+(\w+)/)![1];
       const defined = defines.has(name);
       const active = isActive() && !defined;
-      stack.push({ active, seenTrue: active, done: false });
+      stack.push({ active, seenTrue: active });
       out.push("");
       continue;
     }

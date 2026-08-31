@@ -71,6 +71,7 @@ void main() {
 const QUAD = new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]);
 
 export type ShaderErrorCallback = (err: string | null) => void;
+export type FpsCallback = (fps: number) => void;
 
 function isShadertoy(src: string): boolean {
   return /void\s+mainImage\s*\(/.test(src);
@@ -100,7 +101,11 @@ function makeDummyTexture(gl: WebGLRenderingContext | WebGL2RenderingContext): W
   return tex;
 }
 
-export function createRenderer(canvas: HTMLCanvasElement, onError: ShaderErrorCallback) {
+export function createRenderer(
+  canvas: HTMLCanvasElement,
+  onError: ShaderErrorCallback,
+  onFps: FpsCallback = () => {},
+) {
   const gl2 = canvas.getContext("webgl2");
   const gl1 = gl2 ? null : canvas.getContext("webgl");
   const gl: WebGLRenderingContext | WebGL2RenderingContext | null = gl2 ?? gl1;
@@ -117,9 +122,16 @@ export function createRenderer(canvas: HTMLCanvasElement, onError: ShaderErrorCa
   let program: WebGLProgram | null = null;
   let isShadertoyProgram = false;
   let rafId = 0;
+  let running = true;
+  // Distinguish a user-initiated stop (Pause button) from the watchdog pausing
+  // the loop. Only a watchdog pause auto-resumes when the shader is edited —
+  // a user pause stays paused until they hit Play again.
+  let userPaused = false;
   let frameCount = 0;
   let prevTime = performance.now();
   const startTime = performance.now();
+  let smoothedFps = 60;
+  let lastReportedFps = -1;
 
   let mouseX = 0, mouseY = 0, mouseClickX = 0, mouseClickY = 0;
   canvas.addEventListener("mousemove", e => {
@@ -212,6 +224,14 @@ export function createRenderer(canvas: HTMLCanvasElement, onError: ShaderErrorCa
     slowFrames = 0;
     prevTime = performance.now();
     onError(null);
+    // If the watchdog paused the loop (see FRAME_TIMEOUT_MS), resume it so the
+    // fixed shader starts rendering again — otherwise it would sit at "Live"
+    // while the canvas stays frozen. A user-initiated pause is respected.
+    if (!running && !userPaused) {
+      running = true;
+      prevTime = performance.now();
+      frame();
+    }
   }
 
   let lastW = 0, lastH = 0;
@@ -223,16 +243,29 @@ export function createRenderer(canvas: HTMLCanvasElement, onError: ShaderErrorCa
     const now = performance.now();
     const delta = now - prevTime;
 
-    // Watchdog: GPU hang detection
+    // Watchdog: GPU hang detection. Skip frame 0 — it can be slow spuriously
+    // while GL JIT-compiles and the program is first bound.
     if (frameCount > 0 && delta > FRAME_TIMEOUT_MS) {
       slowFrames++;
       if (slowFrames >= MAX_SLOW_FRAMES) {
         cancelAnimationFrame(rafId);
+        running = false;
         onError(`Shader is too slow — rendering paused to protect the page.\nFrame took ${Math.round(delta)}ms. Loops bound by fragCoord or iResolution can be O(width²·height) per pixel.`);
         return;
       }
     } else {
       slowFrames = 0;
+    }
+
+    // Smoothed FPS readout, reported only when the rounded value changes so the
+    // DOM isn't updated on every frame.
+    if (delta > 0) {
+      smoothedFps = smoothedFps * 0.9 + (1000 / delta) * 0.1;
+      const rounded = Math.round(smoothedFps);
+      if (rounded !== lastReportedFps) {
+        lastReportedFps = rounded;
+        onFps(rounded);
+      }
     }
 
     const t = (now - startTime) / 1000;
@@ -309,6 +342,19 @@ export function createRenderer(canvas: HTMLCanvasElement, onError: ShaderErrorCa
 
   return {
     updateShader,
+    setRunning(next: boolean) {
+      if (next === running) return;
+      running = next;
+      if (next) {
+        userPaused = false;
+        prevTime = performance.now();
+        onError(null);
+        frame();
+      } else {
+        userPaused = true;
+        cancelAnimationFrame(rafId);
+      }
+    },
     destroy() { cancelAnimationFrame(rafId); },
   };
 }
