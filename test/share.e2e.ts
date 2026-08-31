@@ -52,3 +52,22 @@ test("hash link opening does not overwrite localStorage of existing session", as
   const after = await p2.evaluate(() => localStorage.getItem("glsl-editor.doc"));
   expect(after).toBe(saved);
 });
+
+test("persisted non-default doc seeds share hash on load", async ({ page }) => {
+  // A saved custom doc must produce an immediately shareable URL at boot, before
+  // the first edit — the regression behind "clicking share generates no URL".
+  await page.goto("/");
+  await page.evaluate(() => localStorage.setItem("glsl-editor.doc", "// saved custom"));
+  await page.reload();
+
+  await expect(page.locator(EDITOR)).toContainText("// saved custom");
+  await expect.poll(() => page.evaluate(() => location.hash)).toContain("#s=");
+});
+
+test("default shader on fresh load leaves share hash empty", async ({ page }) => {
+  // Stock default content must not clutter the URL with a share hash.
+  await page.goto("/");
+  await expect(page.locator(EDITOR)).toContainText("u_time");
+  await page.waitForTimeout(DEBOUNCE_AND_ENCODE_MS);
+  expect(await page.evaluate(() => location.hash)).toBe("");
+});

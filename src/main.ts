@@ -124,6 +124,9 @@ renderer = createRenderer(canvas, showError, (fps) => {
 });
 updateDefinePanel.update(initialDoc);
 renderer?.updateShader(preprocess(initialDoc, activeOverrides()));
+// Seed the share hash so Share works even before the first edit — but only for
+// non-default content, so a stock page keeps a clean URL.
+if (initialDoc !== DEFAULT_SHADER) updateLocationHash(initialDoc);
 
 // ── Trigger initial info panel for line 1 ────────────────
 updateInfoPanel(initialDoc.split("\n")[0], 1);
