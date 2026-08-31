@@ -52,3 +52,65 @@ test("hash link opening does not overwrite localStorage of existing session", as
   const after = await p2.evaluate(() => localStorage.getItem("glsl-editor.doc"));
   expect(after).toBe(saved);
 });
+
+test("persisted non-default doc seeds share hash on load", async ({ browser }) => {
+  // A saved custom doc must produce an immediately shareable URL at boot, before
+  // the first edit — the regression behind "clicking share generates no URL".
+  const ctx = await browser.newContext();
+  await ctx.grantPermissions(["clipboard-read", "clipboard-write"]);
+  const page = await ctx.newPage();
+  await page.goto("/");
+  await page.evaluate(() => localStorage.setItem("glsl-editor.doc", "// saved custom"));
+  await page.reload();
+
+  await expect(page.locator(EDITOR)).toContainText("// saved custom");
+
+  // Share works immediately, before the async boot hash has necessarily landed —
+  // the handler must build the URL from the doc, not trust location.href.
+  await page.click("#share-btn");
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain("#s=");
+
+  // The boot hash eventually appears in the address bar too.
+  await expect.poll(() => page.evaluate(() => location.hash)).toContain("#s=");
+});
+
+test("opening a share link keeps a shareable URL (Share works immediately)", async ({ browser }) => {
+  // Build a real share URL in a helper context.
+  const src = await browser.newContext();
+  const p = await src.newPage();
+  await p.goto("/");
+  await setContent(p, "// given hash link");
+  await p.waitForTimeout(DEBOUNCE_AND_ENCODE_MS);
+  const shareUrl = p.url();
+  expect(shareUrl).toContain("#s=");
+  await src.close();
+
+  // Receiver: open the link, then Share immediately — the URL must keep a hash.
+  const ctx = await browser.newContext();
+  await ctx.grantPermissions(["clipboard-read", "clipboard-write"]);
+  const page = await ctx.newPage();
+  await page.goto(shareUrl);
+  await expect(page.locator(EDITOR)).toContainText("// given hash link");
+  await page.click("#share-btn");
+  await expect.poll(() =>
+    page.evaluate(() => navigator.clipboard.readText())
+  ).toContain("#s=");
+});
+
+test("default shader shares a clean URL and leaves hash empty", async ({ page, browser }) => {
+  await page.goto("/");
+  await expect(page.locator(EDITOR)).toContainText("u_time");
+  await page.waitForTimeout(DEBOUNCE_AND_ENCODE_MS);
+  expect(await page.evaluate(() => location.hash)).toBe("");
+
+  // Clicking Share on the default shader must yield a clean URL with no hash.
+  const expected = await page.evaluate(() => location.origin + location.pathname);
+  const ctx = await browser.newContext();
+  await ctx.grantPermissions(["clipboard-read", "clipboard-write"]);
+  const p = await ctx.newPage();
+  await p.goto("/");
+  await p.click("#share-btn");
+  const copied = await p.evaluate(() => navigator.clipboard.readText());
+  expect(copied).toBe(expected);
+  expect(copied).not.toContain("#");
+});

@@ -124,6 +124,9 @@ renderer = createRenderer(canvas, showError, (fps) => {
 });
 updateDefinePanel.update(initialDoc);
 renderer?.updateShader(preprocess(initialDoc, activeOverrides()));
+// Seed the share hash so Share works even before the first edit — but only for
+// non-default content, so a stock page keeps a clean URL.
+if (initialDoc !== DEFAULT_SHADER) updateLocationHash(initialDoc);
 
 // ── Trigger initial info panel for line 1 ────────────────
 updateInfoPanel(initialDoc.split("\n")[0], 1);
@@ -166,11 +169,20 @@ resetBtn.addEventListener("click", () => {
   editor.setDoc(DEFAULT_SHADER);
 });
 
-// ── Share (copy current URL — hash is already live) ──────
+// ── Share (copy the current shader's URL) ────────────────
+// The URL is built from the current doc + overrides here, not from the address
+// bar hash: the boot/autosave hash writes are async (encodeShare may compress),
+// so reading location.href could copy a stale or missing #s= link. Default
+// shader shares a clean URL with no hash.
 const shareBtn = document.getElementById("share-btn")!;
 
-shareBtn.addEventListener("click", () => {
-  navigator.clipboard.writeText(location.href).then(() => {
+shareBtn.addEventListener("click", async () => {
+  const doc = editor.getDoc();
+  const base = location.origin + location.pathname;
+  const url = doc === DEFAULT_SHADER
+    ? base
+    : base + "#" + await encodeShare(doc, activeOverrides());
+  navigator.clipboard.writeText(url).then(() => {
     const original = shareBtn.textContent;
     shareBtn.textContent = "Copied";
     setTimeout(() => {
@@ -183,6 +195,49 @@ shareBtn.addEventListener("click", () => {
       shareBtn.textContent = original;
     }, 1200);
   });
+});
+
+// ── Presentation mode ────────────────────────────────────
+// Full-bleed view of the shader: hide all chrome (header, editor, footer) and the
+// canvas resizes itself each frame, so no explicit resize is needed. A class on
+// #app drives the CSS cascade; Esc is a shortcut for the floating exit button.
+//
+// The exit button is hidden until the first pointer activity (mouse move / tap),
+// then it fades out again after stillness.
+const HIDE_EXIT_MS = 2000;
+
+const appEl          = document.getElementById("app")!;
+const presentBtn     = document.getElementById("present-btn")!;
+const exitPresentBtn = document.getElementById("exit-present-btn")!;
+let hideExitTimer: ReturnType<typeof setTimeout> | null = null;
+
+function revealExit() {
+  exitPresentBtn.classList.add("visible");
+  if (hideExitTimer) clearTimeout(hideExitTimer);
+  hideExitTimer = setTimeout(() => {
+    exitPresentBtn.classList.remove("visible");
+    hideExitTimer = null;
+  }, HIDE_EXIT_MS);
+}
+
+function setPresenting(on: boolean) {
+  appEl.classList.toggle("presenting", on);
+  if (on) {
+    document.addEventListener("pointermove", revealExit);
+    document.addEventListener("pointerdown", revealExit);
+  } else {
+    document.removeEventListener("pointermove", revealExit);
+    document.removeEventListener("pointerdown", revealExit);
+    if (hideExitTimer) clearTimeout(hideExitTimer);
+    hideExitTimer = null;
+    exitPresentBtn.classList.remove("visible");
+  }
+}
+
+presentBtn.addEventListener("click", () => setPresenting(true));
+exitPresentBtn.addEventListener("click", () => setPresenting(false));
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && appEl.classList.contains("presenting")) setPresenting(false);
 });
 
 // ── Resizable divider ────────────────────────────────────
