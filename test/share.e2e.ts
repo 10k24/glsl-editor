@@ -25,7 +25,6 @@ test("malformed hash degrades to default shader", async ({ page }) => {
 test("hash link opening does not overwrite localStorage of existing session", async ({ page, browser }) => {
   // Seed a distinctive saved doc and inspect it in this (receiver) context.
   await page.goto("/");
-  const cm = page.locator(EDITOR);
   await setContent(page, "// context A work");
   await page.waitForTimeout(DEBOUNCE_AND_ENCODE_MS);
 

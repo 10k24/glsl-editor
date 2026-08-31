@@ -48,44 +48,44 @@ function describeExpr(expr: string): string {
   if (fn) {
     const args = e.slice(fn.length).replace(/^\s*\(/, "").replace(/\)\s*$/, "");
     switch (fn) {
-      case "length":    return `the Euclidean length (magnitude) of ${c(args)}`;
-      case "normalize": return `${c(args)} scaled to unit length (direction only)`;
-      case "distance":  return `the distance between the two points`;
-      case "dot":       return `the dot product of the two vectors`;
-      case "cross":     return `the cross product — a vector perpendicular to both inputs`;
-      case "reflect":   return `the incident vector reflected around the normal`;
-      case "refract":   return `the refracted direction using Snell's law`;
-      case "mix":       return `a linear interpolation (blend) between the first two arguments`;
-      case "clamp":     return `the value clamped to the given range`;
-      case "smoothstep":return `a smooth S-curve interpolation between the two edges`;
-      case "step":      return `a hard threshold — 0 below edge, 1 above`;
-      case "fract":     return `the fractional part of ${c(args)}`;
-      case "floor":     return `${c(args)} rounded down to the nearest integer`;
-      case "ceil":      return `${c(args)} rounded up to the nearest integer`;
-      case "abs":       return `the absolute value of ${c(args)}`;
-      case "mod":       return `${c(args.split(",")[0].trim())} modulo ${c(args.split(",")[1]?.trim() ?? "…")}`;
-      case "sin":       return `the sine of ${c(args)} (in radians)`;
-      case "cos":       return `the cosine of ${c(args)} (in radians)`;
-      case "tan":       return `the tangent of ${c(args)} (in radians)`;
-      case "pow":       return `${c(args.split(",")[0].trim())} raised to the power of ${c(args.split(",")[1]?.trim() ?? "…")}`;
-      case "sqrt":      return `the square root of ${c(args)}`;
-      case "inversesqrt": return `1 / sqrt(${c(args)}) — fast reciprocal square root`;
-      case "max":       return `the larger of the two values`;
-      case "min":       return `the smaller of the two values`;
-      case "sign":      return `the sign of ${c(args)}: –1, 0, or 1`;
-      case "texture2D": return `the texture color sampled at the given UV`;
-      case "textureCube": return `the cubemap color sampled by the direction vector`;
-      case "vec2": case "vec3": case "vec4":
-        return `a new ${c(fn)} constructed from (${c(args)})`;
-      case "mat2": case "mat3": case "mat4":
-        return `a new ${c(fn)} matrix`;
-      case "float": return `${c(args)} cast to float`;
-      case "int":   return `${c(args)} cast to int`;
+    case "length":    return `the Euclidean length (magnitude) of ${c(args)}`;
+    case "normalize": return `${c(args)} scaled to unit length (direction only)`;
+    case "distance":  return "the distance between the two points";
+    case "dot":       return "the dot product of the two vectors";
+    case "cross":     return "the cross product — a vector perpendicular to both inputs";
+    case "reflect":   return "the incident vector reflected around the normal";
+    case "refract":   return "the refracted direction using Snell's law";
+    case "mix":       return "a linear interpolation (blend) between the first two arguments";
+    case "clamp":     return "the value clamped to the given range";
+    case "smoothstep":return "a smooth S-curve interpolation between the two edges";
+    case "step":      return "a hard threshold — 0 below edge, 1 above";
+    case "fract":     return `the fractional part of ${c(args)}`;
+    case "floor":     return `${c(args)} rounded down to the nearest integer`;
+    case "ceil":      return `${c(args)} rounded up to the nearest integer`;
+    case "abs":       return `the absolute value of ${c(args)}`;
+    case "mod":       return `${c(args.split(",")[0].trim())} modulo ${c(args.split(",")[1]?.trim() ?? "…")}`;
+    case "sin":       return `the sine of ${c(args)} (in radians)`;
+    case "cos":       return `the cosine of ${c(args)} (in radians)`;
+    case "tan":       return `the tangent of ${c(args)} (in radians)`;
+    case "pow":       return `${c(args.split(",")[0].trim())} raised to the power of ${c(args.split(",")[1]?.trim() ?? "…")}`;
+    case "sqrt":      return `the square root of ${c(args)}`;
+    case "inversesqrt": return `1 / sqrt(${c(args)}) — fast reciprocal square root`;
+    case "max":       return "the larger of the two values";
+    case "min":       return "the smaller of the two values";
+    case "sign":      return `the sign of ${c(args)}: –1, 0, or 1`;
+    case "texture2D": return "the texture color sampled at the given UV";
+    case "textureCube": return "the cubemap color sampled by the direction vector";
+    case "vec2": case "vec3": case "vec4":
+      return `a new ${c(fn)} constructed from (${c(args)})`;
+    case "mat2": case "mat3": case "mat4":
+      return `a new ${c(fn)} matrix`;
+    case "float": return `${c(args)} cast to float`;
+    case "int":   return `${c(args)} cast to int`;
     }
   }
 
   // arithmetic patterns
-  if (/[\+\-\*\/]/.test(e)) return "a computed value";
+  if (/[+\-*/]/.test(e)) return "a computed value";
   return e.length < 40 ? `the value ${c(e)}` : "a computed expression";
 }
 
@@ -106,7 +106,7 @@ export function explainLine(rawLine: string): Explanation {
 
   // Preprocessor
   if (line.startsWith("#")) {
-    if (/^#version/.test(line))  return `GLSL version declaration — must be the first non-empty line of the shader.`;
+    if (/^#version/.test(line))  return "GLSL version declaration — must be the first non-empty line of the shader.";
     if (/^#define\s+(\w+)/.test(line)) {
       const m = line.match(/^#define\s+(\w+)(?:\s+(.+))?/);
       return m?.[2]

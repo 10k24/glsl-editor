@@ -77,7 +77,6 @@ function isShadertoy(src: string): boolean {
   return /void\s+mainImage\s*\(/.test(src);
 }
 
-
 function buildShadertoySource(src: string, webgl2: boolean): { src: string; preambleLines: number } {
   if (webgl2) {
     const preamble = SHADERTOY_PREAMBLE_V2;
@@ -185,9 +184,9 @@ export function createRenderer(
       gl!.deleteShader(vert);
       const adjustedLog = preambleLines > 0
         ? rawLog.replace(/ERROR:\s*(\d+):(\d+)/g, (_, a, b) => {
-            const adjusted = parseInt(b, 10) - preambleLines;
-            return `ERROR: ${a}:${adjusted > 0 ? adjusted : b}`;
-          })
+          const adjusted = parseInt(b, 10) - preambleLines;
+          return `ERROR: ${a}:${adjusted > 0 ? adjusted : b}`;
+        })
         : rawLog;
       onError(adjustedLog);
       return null;

@@ -83,6 +83,7 @@ function showError(msg: string | null) {
 
 // ── Debounced shader update ──────────────────────────────
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+// eslint-disable-next-line prefer-const -- assigned after the closures that capture it are defined
 let renderer: ReturnType<typeof createRenderer>;
 let hashWriteId = 0;
 // Set to the doc text of an in-flight share import so its own autosave is

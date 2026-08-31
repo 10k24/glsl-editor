@@ -1,9 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { EDITOR, setContent } from "./helpers";
+import { setContent } from "./helpers";
 
 test("invalid GLSL triggers compile error overlay; fixing clears it", async ({ page }) => {
   await page.goto("/");
-  const cm = page.locator(EDITOR);
   await setContent(page, "vec3 broken = ;");
 
   await expect(page.locator("#status-err")).toBeVisible({ timeout: 3000 });

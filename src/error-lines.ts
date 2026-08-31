@@ -38,14 +38,14 @@ export const errorLinesField = StateField.define<{ lines: number[]; decos: Decor
           lines.length === 0
             ? Decoration.none
             : Decoration.set(
-                lines
-                  .filter((n) => n >= 1 && n <= maxLine)
-                  .sort((a, b) => a - b)
-                  .map((n) => {
-                    const from = tr.state.doc.line(n).from;
-                    return Decoration.line({ class: ERROR_LINE_CLASS }).range(from);
-                  })
-              );
+              lines
+                .filter((n) => n >= 1 && n <= maxLine)
+                .sort((a, b) => a - b)
+                .map((n) => {
+                  const from = tr.state.doc.line(n).from;
+                  return Decoration.line({ class: ERROR_LINE_CLASS }).range(from);
+                })
+            );
         return { lines, decos };
       }
     }

@@ -59,10 +59,10 @@ export function parseDefines(raw: string): Map<string, boolean> {
 export async function encodeShare(doc: string, defines: Map<string, boolean>): Promise<string> {
   const s = HAS_COMPRESSION
     ? "z:" + bytesToB64url(new Uint8Array(
-        await new Response(
-          new Blob([doc]).stream().pipeThrough(new CompressionStream("deflate-raw"))
-        ).arrayBuffer()
-      ))
+      await new Response(
+        new Blob([doc]).stream().pipeThrough(new CompressionStream("deflate-raw"))
+      ).arrayBuffer()
+    ))
     : "p:" + bytesToB64url(new TextEncoder().encode(doc));
   const d = defines.size > 0 ? "&d=" + encodeDefines(defines) : "";
   return `s=${s}${d}`;
