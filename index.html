@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GLSL Editor | 10k24 Studio</title>
-    <meta name="description" content="Browser-based GLSL shader editor with live WebGL preview. Shadertoy-compatible, with inline function docs, autocomplete, and real-time compile errors.">
+    <meta name="description" content="Browser-based GLSL Shader Editor with live WebGL preview. Shadertoy-compatible, with inline function docs, autocomplete, and real-time compile errors.">
     <meta name="author" content="10k24 Studio">
     <meta name="robots" content="index, follow">
     <meta name="theme-color" content="#0d0f14">
@@ -15,19 +15,17 @@
     <meta property="og:image" content="https://glsl.10k24.com/img/opengraph.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:description" content="Browser-based GLSL shader editor with live WebGL preview. Shadertoy-compatible, with inline function docs, autocomplete, and real-time compile errors." />
+    <meta property="og:description" content="Browser-based GLSL Shader Editor with live WebGL preview. Shadertoy-compatible, with inline function docs, autocomplete, and real-time compile errors." />
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="en_US" />
     <meta property="og:site_name" content="10k24 Studio" />
 
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="GLSL Editor | 10k24 Studio" />
-    <meta name="twitter:description" content="Browser-based GLSL shader editor with live WebGL preview. Shadertoy-compatible, with inline function docs, autocomplete, and real-time compile errors." />
+    <meta name="twitter:description" content="Browser-based GLSL Shader Editor with live WebGL preview. Shadertoy-compatible, with inline function docs, autocomplete, and real-time compile errors." />
     <meta name="twitter:image" content="https://glsl.10k24.com/img/opengraph.png" />
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://use.typekit.net/rli7dce.css">
 
     <link rel="icon" type="image/png" href="/img/favicon-96x96.png" sizes="96x96" />
     <link rel="icon" type="image/svg+xml" href="/img/favicon.svg" />
@@ -39,17 +37,22 @@
   <body>
     <div id="app">
       <header id="header">
-        <span id="logo">GLSL</span>
-        <span id="app-title">Shader Editor</span>
+        <a id="brand-link" href="https://10k24.com" target="_blank" rel="noopener noreferrer" aria-label="10k24 Studio">
+          <img id="brand-logo" src="/img/10k24_shortform_logo.svg" alt="10k24 Studio" draggable="false" />
+        </a>
+        <span id="app-title">GLSL Editor</span>
         <div id="status">
-          <span id="status-ok" class="status-dot ok">● live</span>
-          <span id="status-err" class="status-dot err hidden">✕ compile error</span>
+          <span id="fps" class="hidden"></span>
+          <span id="status-ok" class="status-dot ok">● Live</span>
+          <span id="status-err" class="status-dot err hidden">✕ Compile Error</span>
         </div>
         <div id="toolbar">
           <label id="ac-toggle">
-            <input type="checkbox" id="ac-checkbox"> autocomplete
+            <input type="checkbox" id="ac-checkbox"> Autocomplete
           </label>
-          <button id="reset-btn" type="button" title="Restore the default shader">reset</button>
+          <button id="pause-btn" type="button" title="Pause or resume rendering">Pause</button>
+          <button id="reset-btn" type="button" title="Restore the default shader">Reset</button>
+          <button id="share-btn" type="button" title="Copy a link to this shader">Share</button>
         </div>
       </header>
       <div id="body">
@@ -64,6 +67,14 @@
           <div id="error-overlay" class="hidden"></div>
         </div>
       </div>
+      <footer id="footer">
+        <span id="footer-copy">&copy; <span id="year"></span> 10k24 Studio. Los Angeles, California.</span>
+        <nav id="footer-links" aria-label="Footer links">
+          <a href="https://github.com/10k24" target="_blank" rel="noopener noreferrer">GitHub</a>
+          <a href="https://instagram.com/10k24.studio" target="_blank" rel="noopener noreferrer">Instagram</a>
+          <a href="mailto:info@10k24.com">info@10k24.com</a>
+        </nav>
+      </footer>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

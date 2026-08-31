@@ -4,12 +4,16 @@
   padding: 0;
 }
 
+:root {
+  --font-mono: 'adelle-mono', monospace;
+}
+
 html, body, #app {
   height: 100%;
   overflow: hidden;
-  background: #0d0f14;
-  color: #c0caf5;
-  font-family: 'Inter', system-ui, sans-serif;
+  background: #000000;
+  color: #ffffff;
+  font-family: var(--font-mono);
   font-size: 1rem;
   -webkit-font-smoothing: antialiased;
 }
@@ -18,82 +22,181 @@ html, body, #app {
 #header {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 24px;
   height: 48px;
-  padding: 0 16px;
-  background: #0a0c10;
-  border-bottom: 1px solid #1a1d2e;
+  padding: 0 20px;
+  background: #000000;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.25);
   flex-shrink: 0;
   user-select: none;
+  font-family: var(--font-mono);
 }
 
-#logo {
-  font-size: 1rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  color: #7aa2f7;
-  background: rgba(122, 162, 247, 0.1);
-  padding: 3px 10px;
-  border-radius: 4px;
-  border: 1px solid rgba(122, 162, 247, 0.2);
+#brand-link {
+  display: flex;
+  align-items: center;
+  color: #ffffff;
+  text-decoration: none;
+}
+
+#brand-logo {
+  height: 0.75rem;
+  width: auto;
+  display: block;
 }
 
 #app-title {
-  font-size: 1rem;
-  color: #a9b1d6;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.04em;
+}
+
+/* Footer links share the muted, underline-on-hover style. */
+#footer-links a {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
   font-weight: 500;
+  color: rgba(255, 255, 255, 0.6);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+#footer-links a:hover {
+  color: #ffffff;
 }
 
 #status {
+  display: flex;
+  align-items: center;
   margin-left: auto;
 }
 
 .status-dot {
-  font-size: 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  font-weight: 500;
 }
 
-.status-dot.ok  { color: #9ece6a; }
-.status-dot.err { color: #f7768e; }
+.status-dot.ok  { color: #0ACF83; }
+.status-dot.err { color: #F24E1E; }
 .hidden { display: none !important; }
+
+#fps {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.45);
+  margin-right: 16px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
 
 #toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 24px;
 }
 
 #ac-toggle {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 1rem;
-  color: #a9b1d6;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.6);
   cursor: pointer;
 }
 
 #ac-toggle input {
   width: 1rem;
   height: 1rem;
-  accent-color: #7aa2f7;
+  accent-color: #F24E1E;
   cursor: pointer;
 }
 
-#reset-btn {
-  font-size: 1rem;
-  font-family: inherit;
-  color: #a9b1d6;
-  background: transparent;
-  border: 1px solid #2a2d3e;
-  border-radius: 4px;
-  padding: 3px 10px;
+/* Share/Reset follow the 10k24 buttons; smaller for the nav row.
+   Share is the filled .btn (white on black), Reset/Pause are .btn-outline (black on white). */
+#reset-btn,
+#share-btn,
+#pause-btn {
+  display: block;
+  min-width: 4rem;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 1px solid #ffffff;
+  border-radius: 1px;
+  padding: 4px 10px;
   cursor: pointer;
-  transition: background 0.1s, border-color 0.1s, color 0.1s;
+  transition: opacity 0.1s;
 }
 
-#reset-btn:hover {
-  color: #f7768e;
-  border-color: rgba(247, 118, 142, 0.4);
-  background: rgba(247, 118, 142, 0.08);
+#share-btn {
+  color: #000000;
+  background: #ffffff;
+}
+
+#reset-btn,
+#pause-btn {
+  color: #ffffff;
+  background: #000000;
+}
+
+#reset-btn:hover,
+#share-btn:hover,
+#pause-btn:hover {
+  opacity: 0.75;
+}
+
+/* ── Footer ── */
+#footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: 40px;
+  padding: 0 16px;
+  background: #000000;
+  border-top: 1px solid rgba(255, 255, 255, 0.25);
+  flex-shrink: 0;
+  user-select: none;
+  font-family: var(--font-mono);
+}
+
+#footer-copy {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+#footer-links {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+/* ── Responsive header/footer ── */
+@media (max-width: 720px) {
+  #header {
+    gap: 12px;
+    padding: 0 12px;
+  }
+
+  #toolbar {
+    gap: 12px;
+  }
+
+  /* The Autocomplete toggle is the least-essential control; hiding it keeps the
+     fixed-height row from overflowing and clipping Pause/Reset/Share on phones. */
+  #ac-toggle {
+    display: none;
+  }
+
+  #footer-links {
+    gap: 12px;
+  }
 }
 
 /* ── Body layout ── */
@@ -120,9 +223,13 @@ html, body, #app {
   flex-direction: column;
 }
 
-/* CodeMirror host */
+/* CodeMirror host.
+   height:0 + flex: 1 1 0% + min-height:0 gives this flex item a definite base so
+   the .cm-editor's height:100% resolves against it and the .cm-scroller scrolls
+   internally — the editor and preview panes always share the same height. */
 #editor-cm {
-  flex: 1;
+  flex: 1 1 0%;
+  height: 0;
   min-height: 0;
   overflow: hidden;
 }
@@ -179,7 +286,7 @@ html, body, #app {
 }
 
 .define-row code {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.8rem;
   color: #bb9af7;
 }
@@ -249,7 +356,7 @@ html, body, #app {
 .info-badge-keyword   { background: rgba(247,118,142,0.10); color: #f7768e; border: 1px solid rgba(247,118,142,0.20); }
 
 #info-token {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 1rem;
   font-weight: 600;
   color: #c0caf5;
@@ -257,7 +364,7 @@ html, body, #app {
 }
 
 #info-sig {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.875rem;
   color: #7aa2f7;
   white-space: nowrap;
@@ -287,6 +394,21 @@ html, body, #app {
   flex-shrink: 0;
   position: relative;
   transition: background 0.1s;
+  /* Let the browser hand pointer events to us instead of scrolling/zooming the
+     page while dragging on a touch screen. */
+  touch-action: none;
+}
+
+/* Invisible grab area wider than the 5px visual so the divider is easy to hit on
+   touch. The ::after bar remains the only visible part. */
+#divider::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -8px;
+  right: -8px;
+  cursor: col-resize;
 }
 
 #divider:hover,
@@ -330,7 +452,7 @@ html, body, #app {
   background: rgba(10, 8, 12, 0.92);
   border-top: 1px solid rgba(247, 118, 142, 0.3);
   color: #f7768e;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 1rem;
   line-height: 1.5;
   white-space: pre-wrap;
@@ -343,7 +465,7 @@ html, body, #app {
 .cm-editor {
   height: 100%;
   font-size: 1rem;
-  font-family: 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+  font-family: var(--font-mono);
 }
 
 .cm-scroller {

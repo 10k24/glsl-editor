@@ -1,13 +1,5 @@
-import { findBestDocForLine, DocKind } from "./glsl-docs";
+import { findBestDocForLine, KIND_LABELS } from "./glsl-docs";
 import { explainLine } from "./line-explain";
-
-const KIND_LABELS: Record<DocKind, string> = {
-  function:  "fn",
-  type:      "type",
-  variable:  "var",
-  qualifier: "qual",
-  keyword:   "kw",
-};
 
 export function createInfoPanel(container: HTMLElement): (lineText: string, lineNum: number) => void {
   container.innerHTML = `
@@ -29,7 +21,7 @@ export function createInfoPanel(container: HTMLElement): (lineText: string, line
   const sigEl      = container.querySelector<HTMLElement>("#info-sig")!;
   const descEl     = container.querySelector<HTMLElement>("#info-desc")!;
 
-  function update(lineText: string, lineNum: number) {
+  function update(lineText: string) {
     const trimmed = lineText.trim();
 
     // ── Line explanation (always shown) ──────────────────
@@ -38,8 +30,8 @@ export function createInfoPanel(container: HTMLElement): (lineText: string, line
       explainEl.innerHTML = explanation;
       explainEl.style.opacity = "1";
     } else {
-      explainEl.textContent  = `Line ${lineNum}`;
-      explainEl.style.opacity = "0.5";
+      // If there's nothing to explain, clear it out
+      explainEl.textContent  = "";
     }
 
     // ── Token docs ────────────────────────────────────────
