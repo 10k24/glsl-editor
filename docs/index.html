@@ -27,13 +27,23 @@
 
     <link rel="stylesheet" href="https://use.typekit.net/rli7dce.css">
 
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-CPZFEJK5BG"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'G-CPZFEJK5BG');
+    </script>
+
     <link rel="icon" type="image/png" href="/img/favicon-96x96.png" sizes="96x96" />
     <link rel="icon" type="image/svg+xml" href="/img/favicon.svg" />
     <link rel="shortcut icon" href="/img/favicon.ico" />
     <link rel="apple-touch-icon" sizes="180x180" href="/img/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-title" content="GLSL Editor" />
     <link rel="manifest" href="/img/site.webmanifest" />
-    <script type="module" crossorigin src="/assets/index-DFKXbf_y.js"></script>
+    <script type="module" crossorigin src="/assets/index-DdY9hDmK.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-B6g82T-4.css">
   </head>
   <body>
@@ -50,7 +60,7 @@
         </div>
         <div id="toolbar">
           <label id="ac-toggle">
-            <input type="checkbox" id="ac-checkbox"> Autocomplete
+            <input type="checkbox" id="ac-checkbox" checked> Autocomplete
           </label>
           <button id="pause-btn" type="button" title="Pause or resume rendering">Pause</button>
           <button id="reset-btn" type="button" title="Restore the default shader">Reset</button>

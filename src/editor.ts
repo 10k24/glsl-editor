@@ -4,12 +4,32 @@ import { defaultKeymap, history, historyKeymap, indentWithTab, undo, redo } from
 import { StreamLanguage, bracketMatching, indentOnInput } from "@codemirror/language";
 import { shader } from "@codemirror/legacy-modes/mode/clike";
 import { oneDark } from "@codemirror/theme-one-dark";
-import { autocompletion, closeBrackets, completionKeymap, acceptCompletion } from "@codemirror/autocomplete";
+import { autocompletion, closeBrackets, completionKeymap, acceptCompletion, startCompletion } from "@codemirror/autocomplete";
 import { glslCompletionSource } from "./glsl-completions";
 import { ERROR_GUTTER_CLASS, ERROR_LINE_CLASS, ERROR_MARKER_CLASS, setErrorLinesEffect, errorLinesField, errorGutter, parseErrorLines } from "./error-lines";
 
 const glslLang = StreamLanguage.define(shader);
 const autocompleteComp = new Compartment();
+
+// Typing `.` or `[` after an identifier should open member completion for the
+// variable left of it. CM6 only auto-opens the popup on word characters, so
+// these keys insert the trigger char and then explicitly start completion.
+const memberTriggerKeymap = keymap.of([
+  { key: ".", run: insertThenComplete(".") },
+  { key: "[", run: insertThenComplete("[") },
+]);
+
+function insertThenComplete(ch: string): (view: EditorView) => boolean {
+  return (view) => {
+    const { from, to } = view.state.selection.main;
+    view.dispatch({
+      changes: { from, to, insert: ch },
+      selection: { anchor: from + ch.length },
+    });
+    startCompletion(view);
+    return true;
+  };
+}
 
 const baseTheme = EditorView.theme({
   "&": { height: "100%", backgroundColor: "#0d0f14" },
@@ -58,7 +78,7 @@ const baseTheme = EditorView.theme({
     color: "#c0caf5",
   },
   ".cm-completionLabel": { color: "#c0caf5" },
-  ".cm-completionDetail": { color: "#7aa2f7", fontSize: "0.85rem", fontStyle: "normal", marginLeft: "8px" },
+  ".cm-completionDetail": { color: "#7aa2f7", opacity: 0.55, fontSize: "0.85rem", fontStyle: "normal", marginLeft: "8px" },
   ".cm-completionMatchedText": { color: "#9ece6a", fontWeight: "700", textDecoration: "none" },
   // Info popup beside completion
   ".cm-tooltip.cm-completionInfo": {
@@ -99,6 +119,7 @@ export function createEditor(
         errorLinesField,
         errorGutter,
         Prec.highest(keymap.of([{ key: "Tab", run: acceptCompletion }])),
+        Prec.high(memberTriggerKeymap),
         Prec.high(keymap.of(completionKeymap)),
         keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
         EditorView.lineWrapping,
