@@ -40,6 +40,10 @@ export function glslCompletionSource(ctx: CompletionContext): CompletionResult |
   if (ch === "[" && pos >= 2 && /\w/.test(line[pos - 2])) {
     const type = resolveType(ctx, pos - 1);
     if (type) {
+      // Vectors are indexed with dot-swizzles, not `[i]`; offering a swizzle
+      // char here would replace the `[` and produce `vx`. Only matrices get a
+      // bracket skeleton. (Scalars already return no members.)
+      if (/^[ib]?vec\d$/.test(type)) return null;
       const options = membersForType(type);
       // from covers the typed `[`, so the skeleton replaces it.
       if (options.length > 0) return { from: ctx.pos - 1, options, validFor: /^\[?\d*$/ };

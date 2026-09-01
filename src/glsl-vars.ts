@@ -1,4 +1,5 @@
 import { Completion, snippetCompletion } from "@codemirror/autocomplete";
+import { EditorSelection } from "@codemirror/state";
 
 /**
  * Variable → type tracking for the editor's autocomplete.
@@ -83,10 +84,13 @@ export function scanVariables(src: string): Map<string, string> {
  * samplers, and arrays have no such accessors.
  */
 export function membersForType(type: string): Completion[] {
-  if (vectorComponents(type) !== null) {
+  const components = vectorComponents(type);
+  if (components !== null) {
+    // Only offer swizzles the vector dimension actually supports: a vec2 has
+    // `.x .y .r .g .s .t`, a vec3 adds `.z .b .p`, a vec4 adds `.w .a .q`.
     // The user already typed `.`, so each completion applies just the swizzle
     // char at the cursor (from = after the dot), never a leading `.`.
-    return SWIZZLE.map(({ char, detail }) => ({
+    return SWIZZLE.filter((_, i) => i % 4 < components).map(({ char, detail }) => ({
       label: "." + char,
       type: "keyword",
       apply: char,
@@ -95,8 +99,21 @@ export function membersForType(type: string): Completion[] {
   }
   if (matrixDimension(type) !== null) {
     // The user already typed `[`, so this replaces it (from = position of the
-    // `[`) with a full skeleton; cursor lands on the row index, Tab → column.
-    return [snippetCompletion("[${1:0}][${2:0}]", { label: "[row][col]", type: "keyword", detail: "index skeleton" })];
+    // `[`) with the full skeleton. A plain apply is used instead of a snippet:
+    // the two-field snippet's field activation raced (intermittently degrading
+    // to empty fields), and `[0][0]` with the cursor in the row index needs no
+    // Tab-through-column chrome.
+    return [{
+      label: "[row][col]",
+      type: "keyword",
+      detail: "index skeleton",
+      apply: (view, _completion, from, to) => {
+        view.dispatch({
+          changes: { from, to, insert: "[0][0]" },
+          selection: EditorSelection.cursor(from + 1),
+        });
+      },
+    }];
   }
   return [];
 }
@@ -113,6 +130,6 @@ const CONSTRUCTOR_TYPES = [
 /** Constructor completions shown alongside the bare type keyword. */
 export function constructorCompletions(): Completion[] {
   return CONSTRUCTOR_TYPES.map((type) =>
-    snippetCompletion(type + "($0)", { label: type, detail: "constructor", boost: -100 } as Completion)
+    snippetCompletion(type + "(${0})", { label: type, detail: "constructor", boost: -100 } as Completion)
   );
 }

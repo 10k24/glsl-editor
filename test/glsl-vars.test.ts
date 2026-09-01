@@ -61,17 +61,17 @@ describe("scanVariables", () => {
 });
 
 describe("membersForType", () => {
-  it("returns swizzle accessors for vec2", () => {
+  it("returns swizzle accessors for vec2 (dimension-limited)", () => {
     const m = membersForType("vec2");
-    expect(m.map((c) => c.label)).toEqual([".x", ".y", ".z", ".w", ".r", ".g", ".b", ".a", ".s", ".t", ".p", ".q"]);
+    expect(m.map((c) => c.label)).toEqual([".x", ".y", ".r", ".g", ".s", ".t"]);
   });
 
-  it("returns swizzle accessors for vec3", () => {
+  it("returns swizzle accessors for vec3 (dimension-limited)", () => {
     const m = membersForType("vec3");
-    expect(m.map((c) => c.label)).toEqual([".x", ".y", ".z", ".w", ".r", ".g", ".b", ".a", ".s", ".t", ".p", ".q"]);
+    expect(m.map((c) => c.label)).toEqual([".x", ".y", ".z", ".r", ".g", ".b", ".s", ".t", ".p"]);
   });
 
-  it("returns swizzle accessors for vec4", () => {
+  it("returns all swizzle accessors for vec4", () => {
     const m = membersForType("vec4");
     expect(m.map((c) => c.label)).toEqual([".x", ".y", ".z", ".w", ".r", ".g", ".b", ".a", ".s", ".t", ".p", ".q"]);
   });

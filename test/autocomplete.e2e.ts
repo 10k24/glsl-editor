@@ -15,6 +15,15 @@ async function menuOptionLabels(page: import("@playwright/test").Page): Promise<
 const fullMenuTexts = (page: import("@playwright/test").Page) =>
   menu(page).getByRole("option").allTextContents();
 
+// Select a completion by clicking its option. (Enter-to-accept is intentionally
+// suppressed by CodeMirror for `interactionDelay` (default 75 ms) after a menu
+// opens, so an instant Enter drops the accept and inserts a newline. Clicking
+// calls applyCompletion directly, bypassing that gate, and is deterministic.)
+async function clickOption(page: import("@playwright/test").Page, label: string) {
+  await expect(menu(page).getByRole("option", { name: label })).toBeVisible();
+  await menu(page).getByRole("option", { name: label }).click();
+}
+
 // Autocomplete defaults on; toggle via the checkbox so completion sources run
 // (or don't) as the test expects.
 async function setAutocomplete(page: import("@playwright/test").Page, on: boolean) {
@@ -51,9 +60,10 @@ test("accepting a swizzle member inserts it without doubling the dot", async ({ 
   await setContent(page, "vec4 color = vec4(1.0);\n");
   await page.keyboard.type("color.");
   await expect(menu(page)).toBeVisible();
-  await page.keyboard.press("Enter"); // accept the highlighted (first) option
-  await expect(page.locator(EDITOR)).toContainText("color.");
-  // The accepted member must not produce a double dot (e.g. `color..x`).
+  // Click the first swizzle option (`.x`); it must apply just the char, so the
+  // result is `color.x` — never a double dot.
+  await clickOption(page, ".x");
+  await expect(page.locator(EDITOR)).toContainText("color.x");
   expect(await page.locator(EDITOR).textContent()).not.toContain("..");
 });
 
@@ -65,7 +75,7 @@ test("typing [ after a declared matrix offers and applies a bracket skeleton", a
   await expect(menu(page)).toBeVisible();
   const labels = await menuOptionLabels(page);
   expect(labels).toContain("[row][col]");
-  await page.keyboard.press("Enter");
+  await clickOption(page, "[row][col]");
   await expect(page.locator(EDITOR)).toContainText("m[0][0]");
 });
 
@@ -82,4 +92,15 @@ test("typing a type word lists the bare keyword and a constructor option", async
   expect(labels.some((o) => o.startsWith("vec3"))).toBe(true);
   const all = await fullMenuTexts(page);
   expect(all.some((o) => o.includes("constructor"))).toBe(true);
+});
+
+test("typing [ after a vector does not offer dot-member completions", async ({ page }) => {
+  await page.goto("/");
+  await setAutocomplete(page, true);
+  await setContent(page, "vec4 color;\n");
+  await page.keyboard.type("color[");
+  await page.waitForTimeout(200);
+  // A swizzle char must never replace the `[` (which would yield `colorx`), so
+  // no member menu opens for a vector in bracket context.
+  await expect(menu(page)).toBeHidden();
 });

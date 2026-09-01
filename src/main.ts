@@ -5,7 +5,7 @@ import { createInfoPanel } from "./info-panel";
 import { createDefinePanel } from "./define-panel";
 import { createDividerResizer } from "./resizer";
 import { toggleHidden } from "./dom";
-import { loadDoc, storeDoc } from "./persistence";
+import { loadDoc, storeDoc, loadAutocomplete, storeAutocomplete } from "./persistence";
 import { preprocess } from "./glsl-preprocessor";
 import { decodeShare, encodeShare, isShareHash } from "./share";
 
@@ -149,15 +149,14 @@ if (hasSharedLink) {
 // ── Autocomplete toggle ──────────────────────────────────
 // Single source of truth: checkbox checked ⇔ localStorage. Persist so the user's
 // preference survives reloads. Autocomplete defaults ON for new visitors.
-const acStoreKey = "glsl.autocomplete";
-const storedAc = localStorage.getItem(acStoreKey);
+const storedAc = loadAutocomplete();
 if (storedAc !== null) {
-  acCheckbox.checked = storedAc === "1";
+  acCheckbox.checked = storedAc;
 }
 editor.setAutocomplete(acCheckbox.checked);
 acCheckbox.addEventListener("change", () => {
   editor.setAutocomplete(acCheckbox.checked);
-  localStorage.setItem(acStoreKey, acCheckbox.checked ? "1" : "0");
+  storeAutocomplete(acCheckbox.checked);
 });
 
 // ── Pause/resume rendering ───────────────────────────────

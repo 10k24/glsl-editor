@@ -125,3 +125,16 @@ Actionable open tasks for glsl.10k24.com, tracked here until they're scoped and 
 **Coverage:** new `test/analytics.test.ts` — stub `window.gtag`, assert `track()` forwards the correct event name + params; assert `fingerprint()` returns a stable 40-char hex; assert `track()` no-ops when `gtag` is undefined. (`crypto.subtle` is available in Vitest's Node runtime — no mock needed.)
 
 **Open / out-of-band:** registering `shader_url` (+ `copied`) as a **custom dimension** in the GA4 dashboard must be done manually to make the params reportable.
+
+---
+
+## 9. Intermittent e2e flake — matrix bracket skeleton (`m[` → `m[0][0]`)
+
+**Status:** Known intermittent infra/timing flake in `test/autocomplete.e2e.ts:60` ("typing `[` after a declared matrix applies a bracket skeleton").
+
+**Symptom:** On a cold first-run of the Playwright process (dev server just started), pressing Enter after `m[` sometimes resolves the doc to `m[  ` (snippet fields rendered empty on a trailing line) instead of `m[0][0]`. Warm/subsequent runs and the full-suite invocation (`bun run test:e2e`) pass 22/22.
+
+**Root cause (not yet confirmed):** Cold-start timing between `insertThenComplete` (inserts `[` + calls `startCompletion`) and CM6's snippet field application — not a product-logic bug in the matrix path. Reproduces ~0-2/6 in fresh isolated processes; passes consistently once warm. Pre-existing (observed before the Sourcery review touched `src/glsl-vars.ts`/`glsl-completions.ts`); unrelated to those changes.
+
+**Actions if it reappears in CI:** add a short settle wait before the Enter assertion, or verify the applied doc with a retrying assertion. Otherwise leave as-is — the full-suite run is green.
+
