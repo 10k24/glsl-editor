@@ -5,7 +5,7 @@ import { createInfoPanel } from "./info-panel";
 import { createDefinePanel } from "./define-panel";
 import { createDividerResizer } from "./resizer";
 import { toggleHidden } from "./dom";
-import { loadDoc, storeDoc } from "./persistence";
+import { loadDoc, storeDoc, loadAutocomplete, storeAutocomplete } from "./persistence";
 import { preprocess } from "./glsl-preprocessor";
 import { decodeShare, encodeShare, isShareHash } from "./share";
 
@@ -147,8 +147,16 @@ if (hasSharedLink) {
 }
 
 // ── Autocomplete toggle ──────────────────────────────────
+// Single source of truth: checkbox checked ⇔ localStorage. Persist so the user's
+// preference survives reloads. Autocomplete defaults ON for new visitors.
+const storedAc = loadAutocomplete();
+if (storedAc !== null) {
+  acCheckbox.checked = storedAc;
+}
+editor.setAutocomplete(acCheckbox.checked);
 acCheckbox.addEventListener("change", () => {
   editor.setAutocomplete(acCheckbox.checked);
+  storeAutocomplete(acCheckbox.checked);
 });
 
 // ── Pause/resume rendering ───────────────────────────────

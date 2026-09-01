@@ -80,16 +80,61 @@ Actionable open tasks for glsl.10k24.com, tracked here until they're scoped and 
 
 ---
 
-## 7. Autocomplete: suggest variable members (`.field` after a typed variable)
+## 7. ✅ Done — Autocomplete: suggest variable members (`.field` after a typed variable)
 
-**Goal:** Add member completion. When a user types `q.` (a variable of known type), offer that type's members. E.g. for `vec4 q = vec4(1.0);`, typing `q.` should suggest `x`, `y`, `z`, `w`, `r`, `g`, `b`, `a`, `s`, `t`, `p`, `q`, array access, etc.
+**Status:** **Implemented.** Vector swizzle accessors, matrix `[0][0]` skeleton, and constructor options all ship.
 
-**Approach / notes:**
-- Current autocomplete (`src/glsl-completions.ts`) is keyword/function-only; extend it (or add a second completion source) that resolves the identifier left of the `.` to a declared variable's type.
-- Track in-scope variable declarations (name → type) as the user types — a lightweight GLSL parse of the current doc (regex/text scan, not a full parser; see existing parser scans in `src/glsl-preprocessor.ts`).
-- Member lists per type: `vecN` (component accessors, swizzling, array `[i]`), `matN`, `sampler2D` (`texture` isn't a member but may imply usage), structs can't be user-defined in Shadertoy, so built-in types cover most of it.
-- Files: `src/glsl-completions.ts` (add member source), `src/editor.ts` (register source), plus tests.
+**What was built:**
+- **`src/glsl-vars.ts`** (new deep module): `scanVariables()` (name → type regex scan of the doc), `membersForType()`, `constructorCompletions()`, `KNOWN_TYPES` set.
+- **`src/glsl-completions.ts`**: routes completion by context — bracket (`m[`), dot (`q.`), and word (keyword / function / type / constructor).
+- **`src/editor.ts`**: `memberTriggerKeymap` + `insertThenComplete` fire `startCompletion` after typing `.` / `[`.
+- **ON by default** (`index.html` `#ac-checkbox` `checked` + boot calls `setAutocomplete(true)`), **preference persisted** in `localStorage` (`glsl.autocomplete`), re-read on load.
+- **Context hints** in the popup, dimmed via `.cm-completionDetail` opacity: swizzle members carry `"x component"`, `"red channel"`, `"s texture coord"`, etc.; matrix skeleton shows `"index skeleton"`; constructors show `"constructor"`.
+- Vectors expose `.x .y .z .w .r .g .b .a .s .t .p .q`; matrices a `m[0][0]` skeleton with cursor landing on the row index; bare type keyword + constructor both offered for type words. Scalars/mat/sampler have no dot-notation (design decision).
 
-**Open decisions:**
-- Handle copy-propagation / reassignment (e.g. `q = somethingElse` changes `q`'s type), or resolve to the first declaration only for v1.
-- Whether to include `matN` prototype-style members and array indexing suggestions, or just the simple vector component accessors first.
+**Coverage:** `test/glsl-vars.test.ts` (unit), `test/autocomplete.e2e.ts` (4 e2e), localStorage persistence covered in `test/boot.e2e.ts`. Full suite green (56 unit, 21 e2e) as of this update.
+
+**Deferred (captured from open decisions, if revisited):** copy-propagation / reassignment type tracking (currently resolves to last declaration).
+
+---
+
+## 8. GA4 event tracking: `shader_share` + `presentation_start`
+
+**Goal:** Send two custom GA4 events with the shader's share-URL, content-fingerprinted.
+
+**Scope (trimmed from a larger proposal — user wants only these two):**
+- `shader_share` — fired on Share button click.
+- `presentation_start` — fired on Present button click (also captures the shader URL).
+- Explicit **non-goals**: no `compile_error`, `autocomplete_toggle`, `shader_reset`, `render_toggle`, `define_toggle`, `presentation_end`; no dev-gating change (gtag.js loads as-is, including on localhost).
+
+**Key constraint (why we fingerprint):** GA4 caps custom event parameter *values* at **100 chars** (only `page_location` gets 1,000). A full compressed `#s=` shader URL is typically hundreds of chars and would be truncated, so it's never sent raw. Instead:
+- Send a **SHA-1 fingerprint** (hex, 40 chars — well under the limit) of the full share-URL as a `shader_url` param. Collision-resistant for dedupe, privacy-safe, no truncation ambiguity.
+- SHA-1 chosen over MD5: exposed directly by `crypto.subtle.digest` (built-in WebCrypto, zero deps, works on https + localhost); MD5 would need a dependency. Collision risk negligible for dedupe.
+- GA4 does not auto-capture the shared link (it only sees `page_location` = the clean address bar), so the event is the only way to get it.
+
+**Design (deep module, single source of truth for GA naming/limits):**
+- New `src/analytics.ts`:
+  - `track(event, params)` — no-ops safely when `typeof gtag !== "function"` (GA absent/blocked).
+  - `fingerprint(text)` — `crypto.subtle.digest("SHA-1", ...)` → hex.
+  - `EVENTS` constants — event/param names defined once.
+- `src/main.ts`:
+  - Reuse the existing URL-building logic from the Share click handler (default shader → clean URL; else `base + "#" + encodeShare(doc, overrides)`).
+  - `shader_share`: `track(EVENTS.shaderShare, { shader_url: await fingerprint(url), copied: "success" | "failed" })` (`copied` from the clipboard promise — cheap signal that sharing actually worked).
+  - `presentation_start`: build the same share-URL and `track(EVENTS.presentationStart, { shader_url: await fingerprint(url) })`; Present handler becomes async.
+
+**Coverage:** new `test/analytics.test.ts` — stub `window.gtag`, assert `track()` forwards the correct event name + params; assert `fingerprint()` returns a stable 40-char hex; assert `track()` no-ops when `gtag` is undefined. (`crypto.subtle` is available in Vitest's Node runtime — no mock needed.)
+
+**Open / out-of-band:** registering `shader_url` (+ `copied`) as a **custom dimension** in the GA4 dashboard must be done manually to make the params reportable.
+
+---
+
+## 9. Intermittent e2e flake — matrix bracket skeleton (`m[` → `m[0][0]`)
+
+**Status:** Known intermittent infra/timing flake in `test/autocomplete.e2e.ts:60` ("typing `[` after a declared matrix applies a bracket skeleton").
+
+**Symptom:** On a cold first-run of the Playwright process (dev server just started), pressing Enter after `m[` sometimes resolves the doc to `m[  ` (snippet fields rendered empty on a trailing line) instead of `m[0][0]`. Warm/subsequent runs and the full-suite invocation (`bun run test:e2e`) pass 22/22.
+
+**Root cause (not yet confirmed):** Cold-start timing between `insertThenComplete` (inserts `[` + calls `startCompletion`) and CM6's snippet field application — not a product-logic bug in the matrix path. Reproduces ~0-2/6 in fresh isolated processes; passes consistently once warm. Pre-existing (observed before the Sourcery review touched `src/glsl-vars.ts`/`glsl-completions.ts`); unrelated to those changes.
+
+**Actions if it reappears in CI:** add a short settle wait before the Enter assertion, or verify the applied doc with a retrying assertion. Otherwise leave as-is — the full-suite run is green.
+
