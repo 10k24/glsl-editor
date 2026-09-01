@@ -95,3 +95,33 @@ Actionable open tasks for glsl.10k24.com, tracked here until they're scoped and 
 **Coverage:** `test/glsl-vars.test.ts` (unit), `test/autocomplete.e2e.ts` (4 e2e), localStorage persistence covered in `test/boot.e2e.ts`. Full suite green (56 unit, 21 e2e) as of this update.
 
 **Deferred (captured from open decisions, if revisited):** copy-propagation / reassignment type tracking (currently resolves to last declaration).
+
+---
+
+## 8. GA4 event tracking: `shader_share` + `presentation_start`
+
+**Goal:** Send two custom GA4 events with the shader's share-URL, content-fingerprinted.
+
+**Scope (trimmed from a larger proposal — user wants only these two):**
+- `shader_share` — fired on Share button click.
+- `presentation_start` — fired on Present button click (also captures the shader URL).
+- Explicit **non-goals**: no `compile_error`, `autocomplete_toggle`, `shader_reset`, `render_toggle`, `define_toggle`, `presentation_end`; no dev-gating change (gtag.js loads as-is, including on localhost).
+
+**Key constraint (why we fingerprint):** GA4 caps custom event parameter *values* at **100 chars** (only `page_location` gets 1,000). A full compressed `#s=` shader URL is typically hundreds of chars and would be truncated, so it's never sent raw. Instead:
+- Send a **SHA-1 fingerprint** (hex, 40 chars — well under the limit) of the full share-URL as a `shader_url` param. Collision-resistant for dedupe, privacy-safe, no truncation ambiguity.
+- SHA-1 chosen over MD5: exposed directly by `crypto.subtle.digest` (built-in WebCrypto, zero deps, works on https + localhost); MD5 would need a dependency. Collision risk negligible for dedupe.
+- GA4 does not auto-capture the shared link (it only sees `page_location` = the clean address bar), so the event is the only way to get it.
+
+**Design (deep module, single source of truth for GA naming/limits):**
+- New `src/analytics.ts`:
+  - `track(event, params)` — no-ops safely when `typeof gtag !== "function"` (GA absent/blocked).
+  - `fingerprint(text)` — `crypto.subtle.digest("SHA-1", ...)` → hex.
+  - `EVENTS` constants — event/param names defined once.
+- `src/main.ts`:
+  - Reuse the existing URL-building logic from the Share click handler (default shader → clean URL; else `base + "#" + encodeShare(doc, overrides)`).
+  - `shader_share`: `track(EVENTS.shaderShare, { shader_url: await fingerprint(url), copied: "success" | "failed" })` (`copied` from the clipboard promise — cheap signal that sharing actually worked).
+  - `presentation_start`: build the same share-URL and `track(EVENTS.presentationStart, { shader_url: await fingerprint(url) })`; Present handler becomes async.
+
+**Coverage:** new `test/analytics.test.ts` — stub `window.gtag`, assert `track()` forwards the correct event name + params; assert `fingerprint()` returns a stable 40-char hex; assert `track()` no-ops when `gtag` is undefined. (`crypto.subtle` is available in Vitest's Node runtime — no mock needed.)
+
+**Open / out-of-band:** registering `shader_url` (+ `copied`) as a **custom dimension** in the GA4 dashboard must be done manually to make the params reportable.
