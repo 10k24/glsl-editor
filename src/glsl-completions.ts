@@ -1,6 +1,12 @@
 import { CompletionContext, CompletionResult, Completion } from "@codemirror/autocomplete";
 import { GLSL_DOCS, DocKind } from "./glsl-docs";
-import { scanVariables, membersForType, constructorCompletions } from "./glsl-vars";
+import {
+  resolveVariable,
+  variablesInScope,
+  enclosingFunction,
+  membersForType,
+  constructorCompletions,
+} from "./glsl-vars";
 
 const CM_TYPE: Record<DocKind, Completion["type"]> = {
   function:  "function",
@@ -19,15 +25,18 @@ const GLSL_COMPLETIONS: Completion[] = Object.entries(GLSL_DOCS).map(([label, do
   boost: doc.kind === "function" ? 1 : 0,
 }));
 
-// Resolver: look up the type of an identifier left of a `.` or `[` in the current doc.
+// Resolver: look up the type of an identifier left of a `.` or `[` in the
+// current doc, honoring the enclosing function scope (a same-name variable in a
+// different function must not shadow this one).
 function resolveType(ctx: CompletionContext, identEnd: number): string | null {
   const line = ctx.state.doc.lineAt(ctx.pos).text;
   const start = identEnd - 1;
   if (start < 0) return null;
   const ident = line.slice(0, identEnd).match(/(\w+)$/);
   if (!ident) return null;
-  const vars = scanVariables(ctx.state.doc.toString());
-  return vars.get(ident[1]) ?? null;
+  const doc = ctx.state.doc.toString();
+  const scope = enclosingFunction(doc, ctx.pos);
+  return resolveVariable(doc, scope, ident[1]);
 }
 
 export function glslCompletionSource(ctx: CompletionContext): CompletionResult | null {
@@ -61,7 +70,7 @@ export function glslCompletionSource(ctx: CompletionContext): CompletionResult |
     return null;
   }
 
-  // ── Word context: keyword / function / type / constructor ──────────────
+  // ── Word context: variable / keyword / function / type / constructor ──
   const word = ctx.matchBefore(/\w+/);
   if (!word) return null;
   if (word.from === word.to && !ctx.explicit) return null;
@@ -75,7 +84,16 @@ export function glslCompletionSource(ctx: CompletionContext): CompletionResult |
     c.label.toLowerCase().startsWith(typed)
   );
 
-  const options = [...keywordOpts, ...ctorOpts];
+  // User-declared variables in scope rank first — that's what the user most
+  // likely wants to reference. Variables in another function are out of scope
+  // and deliberately not offered.
+  const doc = ctx.state.doc.toString();
+  const scope = enclosingFunction(doc, ctx.pos);
+  const varOpts = [...variablesInScope(doc, scope).entries()]
+    .filter(([name]) => name.toLowerCase().startsWith(typed))
+    .map(([name, type]) => ({ label: name, type: "variable", detail: type, boost: 2 }));
+
+  const options = [...varOpts, ...keywordOpts, ...ctorOpts];
   if (options.length === 0) return null;
 
   return { from: word.from, options, validFor: /^\w*$/ };

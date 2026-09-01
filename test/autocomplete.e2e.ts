@@ -104,3 +104,91 @@ test("typing [ after a vector does not offer dot-member completions", async ({ p
   // no member menu opens for a vector in bracket context.
   await expect(menu(page)).toBeHidden();
 });
+
+// Move the cursor to a live-document offset, then clear any pending menu so a
+// later `.`/word opens a fresh completion. Auto-indentation shifts offsets from
+// the raw source, so offsets must be computed from the live document.
+async function setCursor(page: import("@playwright/test").Page, pos: number) {
+  await page.evaluate((p) => window.__cmSetCursor(p), pos);
+  await page.keyboard.press("Escape");
+}
+
+// End offset of `needle` in the live editor document (after setContent's
+// auto-indent), so cursor placement survives indentation shifts.
+async function liveEndOffset(page: import("@playwright/test").Page, needle: string): Promise<number> {
+  return page.evaluate((n) => {
+    const doc = window.__cmGetDoc();
+    const i = doc.indexOf(n);
+    return i + n.length;
+  }, needle);
+}
+
+test("same-name variable in another function does not shadow dot members", async ({ page }) => {
+  await page.goto("/");
+  await setAutocomplete(page, true);
+  // `weight` is `float` in quads() but `vec2` in noise(). A `weight.` typed
+  // inside noise() must resolve to the vec2 and offer swizzles — the later
+  // `float weight` must not shadow it across functions.
+  await setContent(
+    page,
+    "float quads() {\n" +
+    "  float weight = 1.0;\n" +
+    "  return weight;\n" +
+    "}\n" +
+    "void noise() {\n" +
+    "  vec2 weight = smoothstep(0.0, 1.0, vec2(0.0));\n" +
+    "  vec2 q = weight;\n" +
+    "}\n"
+  );
+  // Place the cursor right after the `weight` token on the last line of noise().
+  await setCursor(page, await liveEndOffset(page, "q = weight"));
+  await page.keyboard.type(".");
+  await expect(menu(page)).toBeVisible();
+  const labels = await menuOptionLabels(page);
+  expect(labels).toContain(".x");
+  expect(labels).toContain(".y");
+  await clickOption(page, ".x");
+  await expect(page.locator(EDITOR)).toContainText("weight.x");
+});
+
+test("word completion offers an in-scope variable first", async ({ page }) => {
+  await page.goto("/");
+  await setAutocomplete(page, true);
+  await setContent(
+    page,
+    "uniform vec2 u_resolution;\n" +
+    "void main() {\n" +
+    "  vec3 target = vec3(0.0);\n" +
+    "  vec3 done;\n" +
+    "}\n"
+  );
+  // Type on a fresh line inside main(), after the closing brace of the
+  // `vec3 done;` declaration's line — so `t` starts a brand-new token.
+  await setCursor(page, await liveEndOffset(page, "vec3 done;"));
+  await page.keyboard.type("t");
+  await expect(menu(page)).toBeVisible();
+  // The in-scope variable is top priority, above any GLSL keyword/type.
+  const labels = await menuOptionLabels(page);
+  expect(labels[0]).toBe("target");
+  await clickOption(page, "target");
+  await expect(page.locator(EDITOR)).toContainText("target");
+});
+
+test("word completion does not offer an out-of-scope variable", async ({ page }) => {
+  await page.goto("/");
+  await setAutocomplete(page, true);
+  await setContent(
+    page,
+    "float other() {\n" +
+    "  vec4 hidden = vec4(1.0);\n" +
+    "}\n" +
+    "void main() {\n" +
+    "  vec3 q = vec3(0.0);\n" +
+    "}\n"
+  );
+  await setCursor(page, await liveEndOffset(page, "vec3 q = vec3(0.0);"));
+  await page.keyboard.type("h");
+  await page.waitForTimeout(300);
+  // `hidden` lives only inside other(); it must not be suggested in main().
+  expect((await fullMenuTexts(page)).some((o) => o.includes("hidden"))).toBe(false);
+});

@@ -49,31 +49,134 @@ const SWIZZLE: { char: string; detail: string }[] = [
   { char: "q", detail: "q texture coord" },
 ];
 
+/** A variable declaration and the function body (scope) it lives in. */
+export interface VarDecl {
+  type: string;
+  /** Enclosing function name, or "" for variables at file scope. */
+  scope: string;
+}
+
+// Optional qualifier span and precision, then <type> <name> [array] [= init];
+const DECL = /^(?:(?:const|uniform|in|out|varying|attribute)\s+)?(?:(?:highp|mediump|lowp)\s+)?(\w+)\s+(\w+)(?:\s*\[[^\]]*\])?(?:\s*=\s*[^;]*?)?\s*;?$/;
+// A function definition — return type, name, params, opening brace on one line.
+const FUNC_HEADER = /^([\w.]+)\s+(\w+)\s*\([^)]*\)\s*\{\s*$/;
+
+function braces(line: string): number {
+  const opens = (line.match(/\{/g) || []).length;
+  const closes = (line.match(/\}/g) || []).length;
+  return opens - closes;
+}
+
+/** Enclosing function scope for each line: `{ lineStart, scope }[]`. */
+interface LineScope {
+  lineStart: number;
+  scope: string;
+}
+
 /**
- * Scan GLSL source for variable declarations (name → type).
+ * Walk the source once, recording the enclosing function scope at the start of
+ * every line. Single source of truth for the brace/function-header tracking
+ * that both variable scanning and position lookup reuse.
+ */
+function lineScopes(src: string): LineScope[] {
+  const out: LineScope[] = [];
+  let scope = ""; // enclosing function name, "" = file scope
+  let depth = 0; // brace depth
+  const stack: { name: string; baseDepth: number }[] = [];
+  let lineStart = 0;
+
+  for (const raw of src.split("\n")) {
+    out.push({ lineStart, scope });
+    const line = raw.split("//")[0].trim();
+    if (line) {
+      const fm = line.match(FUNC_HEADER);
+      if (fm) {
+        // A function definition opens a new scope for the rest of its body.
+        depth += braces(line);
+        stack.push({ name: fm[2], baseDepth: depth });
+        scope = fm[2];
+      } else {
+        depth += braces(line);
+        while (stack.length && stack[stack.length - 1].baseDepth > depth) stack.pop();
+        scope = stack.length ? stack[stack.length - 1].name : "";
+      }
+    }
+    lineStart += raw.length + 1;
+  }
+  return out;
+}
+
+/**
+ * Scan GLSL source for variable declarations, tracking the function body each
+ * one lives in.
  *
  * Handles unqualified, `uniform`/`in`/`out`/`varying`/`attribute`, `const`,
  * and precision-qualified declarations, with or without an initializer or an
  * array suffix. Lines with `//` comments are ignored, so a declaration inside
- * a comment never registers. Later declarations of the same name win
- * (redeclaration updates the type); plain reassignment (`q = other;`) is not
- * tracked — the type is left at the last declaration.
+ * a comment never registers. Same-name declarations are kept as a list (each
+ * with its scope), so a name reused in different functions no longer shadows
+ * across scopes. Plain reassignment (`q = other;`) is not tracked.
  */
-export function scanVariables(src: string): Map<string, string> {
-  const vars = new Map<string, string>();
-  // Optional qualifier span and precision, then <type> <name> [array] [= init];
-  const decl = /^(?:(?:const|uniform|in|out|varying|attribute)\s+)?(?:(?:highp|mediump|lowp)\s+)?(\w+)\s+(\w+)(?:\s*\[[^\]]*\])?(?:\s*=\s*[^;]*?)?\s*;?$/;
+export function scanVariables(src: string): Map<string, VarDecl[]> {
+  const vars = new Map<string, VarDecl[]>();
+  const lines = lineScopes(src);
+  let i = 0;
 
   for (const raw of src.split("\n")) {
     const line = raw.split("//")[0].trim();
-    const m = line.match(decl);
-    if (!m) continue;
-    // Only a known type token counts as a declaration — this rejects
-    // statements like `return value;` from being misread as `type name`.
-    if (!KNOWN_TYPES.has(m[1])) continue;
-    vars.set(m[2], m[1]);
+    const declaration = line.match(DECL);
+    if (declaration && KNOWN_TYPES.has(declaration[1])) {
+      const name = declaration[2];
+      const list = vars.get(name) ?? [];
+      list.push({ type: declaration[1], scope: lines[i].scope });
+      vars.set(name, list);
+    }
+    i++;
   }
   return vars;
+}
+
+/**
+ * Resolve the effective type of `name` visible at `scope` (a function name, or
+ * "" for file scope). A file-scope declaration is always visible; a declaration
+ * in the same function shadows it. Out-of-scope declarations (other functions)
+ * are never consulted. Among the visible candidates the later one wins.
+ */
+export function resolveVariable(src: string, scope: string, name: string): string | null {
+  const decls = scanVariables(src).get(name);
+  if (!decls) return null;
+  let type: string | null = null;
+  for (const d of decls) {
+    if (d.scope === scope || d.scope === "") type = d.type;
+  }
+  return type;
+}
+
+/** All variables visible at `scope`, mapping name → effective type. */
+export function variablesInScope(src: string, scope: string): Map<string, string> {
+  const result = new Map<string, string>();
+  for (const [name, decls] of scanVariables(src)) {
+    let type: string | null = null;
+    for (const d of decls) {
+      if (d.scope === scope || d.scope === "") type = d.type;
+    }
+    if (type !== null) result.set(name, type);
+  }
+  return result;
+}
+
+/** Enclosing function name at document offset `pos`, or "" at file scope. */
+export function enclosingFunction(src: string, pos: number): string {
+  const lines = lineScopes(src);
+  // Binary search for the last line whose start is <= pos.
+  let lo = 0;
+  let hi = lines.length; // lines has a sentinel entry past the last line
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (lines[mid].lineStart <= pos) lo = mid + 1;
+    else hi = mid;
+  }
+  return lines[lo - 1].scope;
 }
 
 /**
