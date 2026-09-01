@@ -80,16 +80,18 @@ Actionable open tasks for glsl.10k24.com, tracked here until they're scoped and 
 
 ---
 
-## 7. Autocomplete: suggest variable members (`.field` after a typed variable)
+## 7. ✅ Done — Autocomplete: suggest variable members (`.field` after a typed variable)
 
-**Goal:** Add member completion. When a user types `q.` (a variable of known type), offer that type's members. E.g. for `vec4 q = vec4(1.0);`, typing `q.` should suggest `x`, `y`, `z`, `w`, `r`, `g`, `b`, `a`, `s`, `t`, `p`, `q`, array access, etc.
+**Status:** **Implemented.** Vector swizzle accessors, matrix `[0][0]` skeleton, and constructor options all ship.
 
-**Approach / notes:**
-- Current autocomplete (`src/glsl-completions.ts`) is keyword/function-only; extend it (or add a second completion source) that resolves the identifier left of the `.` to a declared variable's type.
-- Track in-scope variable declarations (name → type) as the user types — a lightweight GLSL parse of the current doc (regex/text scan, not a full parser; see existing parser scans in `src/glsl-preprocessor.ts`).
-- Member lists per type: `vecN` (component accessors, swizzling, array `[i]`), `matN`, `sampler2D` (`texture` isn't a member but may imply usage), structs can't be user-defined in Shadertoy, so built-in types cover most of it.
-- Files: `src/glsl-completions.ts` (add member source), `src/editor.ts` (register source), plus tests.
+**What was built:**
+- **`src/glsl-vars.ts`** (new deep module): `scanVariables()` (name → type regex scan of the doc), `membersForType()`, `constructorCompletions()`, `KNOWN_TYPES` set.
+- **`src/glsl-completions.ts`**: routes completion by context — bracket (`m[`), dot (`q.`), and word (keyword / function / type / constructor).
+- **`src/editor.ts`**: `memberTriggerKeymap` + `insertThenComplete` fire `startCompletion` after typing `.` / `[`.
+- **ON by default** (`index.html` `#ac-checkbox` `checked` + boot calls `setAutocomplete(true)`), **preference persisted** in `localStorage` (`glsl.autocomplete`), re-read on load.
+- **Context hints** in the popup, dimmed via `.cm-completionDetail` opacity: swizzle members carry `"x component"`, `"red channel"`, `"s texture coord"`, etc.; matrix skeleton shows `"index skeleton"`; constructors show `"constructor"`.
+- Vectors expose `.x .y .z .w .r .g .b .a .s .t .p .q`; matrices a `m[0][0]` skeleton with cursor landing on the row index; bare type keyword + constructor both offered for type words. Scalars/mat/sampler have no dot-notation (design decision).
 
-**Open decisions:**
-- Handle copy-propagation / reassignment (e.g. `q = somethingElse` changes `q`'s type), or resolve to the first declaration only for v1.
-- Whether to include `matN` prototype-style members and array indexing suggestions, or just the simple vector component accessors first.
+**Coverage:** `test/glsl-vars.test.ts` (unit), `test/autocomplete.e2e.ts` (4 e2e), localStorage persistence covered in `test/boot.e2e.ts`. Full suite green (56 unit, 21 e2e) as of this update.
+
+**Deferred (captured from open decisions, if revisited):** copy-propagation / reassignment type tracking (currently resolves to last declaration).
