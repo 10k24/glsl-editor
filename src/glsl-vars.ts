@@ -56,10 +56,15 @@ export interface VarDecl {
   scope: string;
 }
 
-// Optional qualifier span and precision, then <type> <name> [array] [= init];
-const DECL = /^(?:(?:const|uniform|in|out|varying|attribute)\s+)?(?:(?:highp|mediump|lowp)\s+)?(\w+)\s+(\w+)(?:\s*\[[^\]]*\])?(?:\s*=\s*[^;]*?)?\s*;?$/;
-// A function definition — return type, name, params, opening brace on one line.
-const FUNC_HEADER = /^([\w.]+)\s+(\w+)\s*\([^)]*\)\s*\{\s*$/;
+// <type> <name> [array] — leading segment of a declaration, possibly preceded
+// by an opening brace (one-line function body) and a qualifier/precision span.
+// Falls in front of a `;`-split segment and matches only the first two words.
+const DECL_SEGMENT = /^\s*\{?\s*(?:(?:const|uniform|in|out|varying|attribute)\s+)?(?:(?:highp|mediump|lowp)\s+)?(\w+)\s+(\w+)\b/;
+// A function definition — return type, name, params (all up to the closing `)`).
+// The opening brace is NOT required here; it may share the line or be next.
+const FUNC_HEADER = /^([\w.]+)\s+(\w+)\s*\(([^)]*)\)/;
+// A single function parameter: optional qualifier + precision, then type name.
+const PARAM = /^(?:(?:in|out|inout)\s+)?(?:(?:highp|mediump|lowp)\s+)?(\w+)\s+(\w+)(?:\s*\[[^\]]*\])?$/;
 
 function braces(line: string): number {
   const opens = (line.match(/\{/g) || []).length;
@@ -67,73 +72,124 @@ function braces(line: string): number {
   return opens - closes;
 }
 
-/** Enclosing function scope for each line: `{ lineStart, scope }[]`. */
-interface LineScope {
-  lineStart: number;
-  scope: string;
+/** A resolved function parameter — its name and type. */
+interface Param {
+  name: string;
+  type: string;
 }
 
-/**
- * Walk the source once, recording the enclosing function scope at the start of
- * every line. Single source of truth for the brace/function-header tracking
- * that both variable scanning and position lookup reuse.
- */
-function lineScopes(src: string): LineScope[] {
-  const out: LineScope[] = [];
-  let scope = ""; // enclosing function name, "" = file scope
-  let depth = 0; // brace depth
-  const stack: { name: string; baseDepth: number }[] = [];
-  let lineStart = 0;
-
-  for (const raw of src.split("\n")) {
-    out.push({ lineStart, scope });
-    const line = raw.split("//")[0].trim();
-    if (line) {
-      const fm = line.match(FUNC_HEADER);
-      if (fm) {
-        // A function definition opens a new scope for the rest of its body.
-        depth += braces(line);
-        stack.push({ name: fm[2], baseDepth: depth });
-        scope = fm[2];
-      } else {
-        depth += braces(line);
-        while (stack.length && stack[stack.length - 1].baseDepth > depth) stack.pop();
-        scope = stack.length ? stack[stack.length - 1].name : "";
-      }
-    }
-    lineStart += raw.length + 1;
+/** Parse a function's parameter list into `{ name, type }[]`, type-validated. */
+function parseParams(paramsSrc: string): Param[] {
+  if (!paramsSrc.trim()) return [];
+  const out: Param[] = [];
+  for (const raw of paramsSrc.split(",")) {
+    const p = raw.trim();
+    const m = p.match(PARAM);
+    if (m && KNOWN_TYPES.has(m[1])) out.push({ name: m[2], type: m[1] });
   }
   return out;
 }
 
+/** Enclosing function scope for each line: `{ lineStart, scope }[]`. */
+interface LineScope {
+  lineStart: number;
+  scope: string;
+  /** A function whose body opens mid-line (same-line or brace-on-next-line): the
+   *  raw-doc offset of its `{` and the scope it activates from there on. */
+  opened?: { offset: number; scope: string };
+}
+
 /**
- * Scan GLSL source for variable declarations, tracking the function body each
- * one lives in.
+ * Walk the source once, in a single pass, producing both the enclosing scope
+ * at the start of every line and every variable declaration (function params
+ * and body locals) tagged with its scope.
  *
- * Handles unqualified, `uniform`/`in`/`out`/`varying`/`attribute`, `const`,
- * and precision-qualified declarations, with or without an initializer or an
- * array suffix. Lines with `//` comments are ignored, so a declaration inside
- * a comment never registers. Same-name declarations are kept as a list (each
- * with its scope), so a name reused in different functions no longer shadows
- * across scopes. Plain reassignment (`q = other;`) is not tracked.
+ * Handles all function brace styles with one tracker: the header, a `{` on the
+ * same line (multiline or one-line), or a `{` on the following line (held in
+ * `pendingParams` until it arrives). One-line function bodies are supported:
+ * locals and params are found and correctly scoped. Commented lines (`//`) are
+ * skipped, so a declaration inside a comment never registers.
  */
-export function scanVariables(src: string): Map<string, VarDecl[]> {
+function analyze(src: string): { lines: LineScope[]; vars: Map<string, VarDecl[]> } {
   const vars = new Map<string, VarDecl[]>();
-  const lines = lineScopes(src);
-  let i = 0;
+  const lines: LineScope[] = [];
+  let scope = ""; // enclosing function name, "" = file scope
+  let depth = 0; // brace depth
+  const stack: { name: string; baseDepth: number }[] = [];
+  let pendingName = "";
+  let pendingParams: Param[] | null = null;
+  let lineStart = 0;
+
+  const add = (name: string, type: string, sc: string) => {
+    const list = vars.get(name) ?? [];
+    list.push({ type, scope: sc });
+    vars.set(name, list);
+  };
 
   for (const raw of src.split("\n")) {
+    lines.push({ lineStart, scope });
     const line = raw.split("//")[0].trim();
-    const declaration = line.match(DECL);
-    if (declaration && KNOWN_TYPES.has(declaration[1])) {
-      const name = declaration[2];
-      const list = vars.get(name) ?? [];
-      list.push({ type: declaration[1], scope: lines[i].scope });
-      vars.set(name, list);
+    if (line) {
+      const fm = line.match(FUNC_HEADER);
+
+      if (fm) {
+        const name = fm[2];
+        const params = parseParams(fm[3]);
+        if (line.includes("{")) {
+          // Body opens on this line (multiline or one-line); open now.
+          stack.push({ name, baseDepth: depth + 1 });
+          scope = name;
+          for (const p of params) add(p.name, p.type, name);
+          lines[lines.length - 1].opened = { offset: raw.indexOf("{"), scope: name };
+        } else {
+          // Brace is on a later line; hold the params until it arrives.
+          pendingName = name;
+          pendingParams = params;
+        }
+      } else if (pendingParams && line.includes("{")) {
+        // The pending header's brace arrives on this line (brace-on-next-line).
+        stack.push({ name: pendingName, baseDepth: depth + 1 });
+        scope = pendingName;
+        for (const p of pendingParams) add(p.name, p.type, pendingName);
+        lines[lines.length - 1].opened = { offset: raw.indexOf("{"), scope: pendingName };
+        pendingName = "";
+        pendingParams = null;
+      }
+
+      // Extract declarations from the line, tagged with the current scope.
+      // On a header line, skip the header itself so its name isn't a "var".
+      const rest = fm ? line.slice(fm[0].length) : line;
+      for (const seg of rest.split(";")) {
+        const d = seg.match(DECL_SEGMENT);
+        if (d && KNOWN_TYPES.has(d[1])) add(d[2], d[1], scope);
+      }
+
+      depth += braces(line);
+      while (stack.length && stack[stack.length - 1].baseDepth > depth) stack.pop();
+      scope = stack.length ? stack[stack.length - 1].name : "";
     }
-    i++;
+    lineStart += raw.length + 1;
   }
-  return vars;
+  return { lines, vars };
+}
+
+/**
+ * Scan GLSL source for variable declarations, tracking the function body each
+ * one lives in. Includes function parameters. Same-name declarations are kept
+ * as a list (each with its scope), so a name reused in different functions no
+ * longer shadows across scopes. Plain reassignment (`q = other;`) is not
+ * tracked.
+ */
+export function scanVariables(src: string): Map<string, VarDecl[]> {
+  return analyze(src).vars;
+}
+
+/**
+ * Enclosing function names for every line. Binary-searched by callers that
+ * need the scope at an arbitrary cursor position.
+ */
+function lineScopes(src: string): LineScope[] {
+  return analyze(src).lines;
 }
 
 /**
@@ -176,7 +232,11 @@ export function enclosingFunction(src: string, pos: number): string {
     if (lines[mid].lineStart <= pos) lo = mid + 1;
     else hi = mid;
   }
-  return lines[lo - 1].scope;
+  const line = lines[lo - 1];
+  // A function body may open mid-line (one-line function, `void main() {`), so
+  // the scope is the opened function only at/after its `{` offset.
+  if (line.opened && pos >= line.lineStart + line.opened.offset) return line.opened.scope;
+  return line.scope;
 }
 
 /**

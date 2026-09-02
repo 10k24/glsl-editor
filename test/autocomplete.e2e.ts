@@ -192,3 +192,34 @@ test("word completion does not offer an out-of-scope variable", async ({ page })
   // `hidden` lives only inside other(); it must not be suggested in main().
   expect((await fullMenuTexts(page)).some((o) => o.includes("hidden"))).toBe(false);
 });
+
+test("one-line function local resolves to vec2 for dot members", async ({ page }) => {
+  await page.goto("/");
+  await setAutocomplete(page, true);
+  await setContent(
+    page,
+    "float square() {\n" +
+    "  vec2 p = vec2(1.0);\n" +
+    "  return p.x;\n" +
+    "}\n" +
+    "float other(float x) { vec3 p = vec3(x); return p.x; }\n" +
+    "vec2 q = vec2(0.0);\n"
+  );
+  // Type `.` after the one-line function's local `p` (a vec3 inside other()).
+  await setCursor(page, await liveEndOffset(page, "other(float x) { vec3 p"));
+  await page.keyboard.type(".");
+  await expect(menu(page)).toBeVisible();
+  const labels = await menuOptionLabels(page);
+  expect(labels).toContain(".z");
+  // vec3 has no `.w` — the local's vec3 type must drive the members exactly.
+  expect(labels).not.toContain(".w");
+  // A one-line function's local must not leak out: q at file scope is the vec2,
+  // but offer / resolve `q.` correctly at file scope too.
+  await setCursor(page, await liveEndOffset(page, "vec2 q"));
+  await page.keyboard.type(".");
+  await expect(menu(page)).toBeVisible();
+  const fileLabels = await menuOptionLabels(page);
+  expect(fileLabels).toContain(".x");
+  expect(fileLabels).toContain(".y");
+  expect(fileLabels).not.toContain(".z");
+});

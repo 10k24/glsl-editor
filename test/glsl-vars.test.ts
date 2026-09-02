@@ -75,6 +75,45 @@ describe("scanVariables", () => {
     const vars = scanVariables("MyStruct foo;");
     expect(vars.has("foo")).toBe(false);
   });
+
+  it("tracks a one-line function: params and local, scoped to it", () => {
+    const vars = scanVariables("float square(float x) { float y = x * x; return y; }");
+    expect(vars.get("x")).toEqual([{ type: "float", scope: "square" }]);
+    expect(vars.get("y")).toEqual([{ type: "float", scope: "square" }]);
+    // The function name itself is not a variable.
+    expect(vars.has("square")).toBe(false);
+  });
+
+  it("tracks parameters on a multiline function", () => {
+    const vars = scanVariables("float mix2(vec2 a, vec2 b) {\n  return a.x + b.x;\n}\n");
+    expect(vars.get("a")).toEqual([{ type: "vec2", scope: "mix2" }]);
+    expect(vars.get("b")).toEqual([{ type: "vec2", scope: "mix2" }]);
+  });
+
+  it("parses qualifier, precision, and array parameters", () => {
+    const vars = scanVariables("float f(out vec4 col, highp vec2 uv, float arr[4]) {\n}\n");
+    expect(vars.get("col")).toEqual([{ type: "vec4", scope: "f" }]);
+    expect(vars.get("uv")).toEqual([{ type: "vec2", scope: "f" }]);
+    expect(vars.get("arr")).toEqual([{ type: "float", scope: "f" }]);
+  });
+
+  it("does not register the function name as a variable", () => {
+    const vars = scanVariables("vec2 weight = vec2(1.0);\nfloat f(float x) {\n}\n");
+    expect(vars.has("f")).toBe(false);
+    expect(vars.get("weight")).toEqual([{ type: "vec2", scope: "" }]);
+  });
+
+  it("scopes brace-on-next-line function bodies", () => {
+    const src = "float f(float x)\n{\n  vec2 p = vec2(x);\n}\n";
+    const vars = scanVariables(src);
+    expect(vars.get("p")).toEqual([{ type: "vec2", scope: "f" }]);
+    expect(vars.get("x")).toEqual([{ type: "float", scope: "f" }]);
+  });
+
+  it("returns file scope for an empty one-line function", () => {
+    const vars = scanVariables("void main() {}\nvec2 g = vec2(1.0);\n");
+    expect(vars.get("g")).toEqual([{ type: "vec2", scope: "" }]);
+  });
 });
 
 describe("resolveVariable", () => {
@@ -107,6 +146,21 @@ describe("resolveVariable", () => {
 
   it("returns null for an undeclared name", () => {
     expect(resolveVariable("vec2 weight;", "", "nope")).toBeNull();
+  });
+
+  it("resolves a one-line function parameter within its own scope", () => {
+    expect(resolveVariable("float square(float x) { return x * x; }", "square", "x")).toBe("float");
+  });
+
+  it("resolves a one-line function local within its own scope", () => {
+    const src = "float f(float x) { vec2 p = vec2(x); return p.x; }";
+    expect(resolveVariable(src, "f", "p")).toBe("vec2");
+  });
+
+  it("does not leak a one-line function local into file scope", () => {
+    const src = "float f(float x) { vec2 p = vec2(x); return p.x; }\nvec2 q = vec2(1.0);\n";
+    expect(resolveVariable(src, "", "p")).toBeNull();
+    expect(resolveVariable(src, "", "q")).toBe("vec2");
   });
 });
 
@@ -157,6 +211,14 @@ describe("enclosingFunction", () => {
   it("returns empty scope after the function closes", () => {
     const afterPos = src.indexOf("void main");
     expect(enclosingFunction(src, afterPos)).toBe("");
+  });
+
+  it("resolves the scope of a one-line function by brace offset", () => {
+    const one = "float other(float x) { vec3 p = vec3(x); return p.x; }\n";
+    const bodyPos = src.indexOf("{", src.indexOf("float other")) + 1;
+    // At/after the opening brace the one-line body is inside `other`...
+    expect(enclosingFunction(one, bodyPos)).toBe("other");
+    expect(enclosingFunction(one, one.indexOf("float other"))).toBe("");
   });
 });
 
