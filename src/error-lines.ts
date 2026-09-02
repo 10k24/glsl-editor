@@ -7,10 +7,10 @@ export const ERROR_LINE_CLASS = "cm-error-line";
 export const ERROR_MARKER_CLASS = "cm-error-marker";
 export const ERROR_GUTTER_CLASS = "cm-error-gutter";
 
-// ── Effect to push new error line numbers into the editor ─────────────────────
+// -- Effect to push new error line numbers into the editor ---------------------
 export const setErrorLinesEffect = StateEffect.define<number[]>();
 
-// ── Gutter marker: red dot shown in the gutter on error lines ─────────────────
+// -- Gutter marker: red dot shown in the gutter on error lines -----------------
 class ErrorMarker extends GutterMarker {
   toDOM() {
     const el = document.createElement("span");
@@ -22,7 +22,7 @@ class ErrorMarker extends GutterMarker {
 }
 const errorMarker = new ErrorMarker();
 
-// ── State field: current set of error line numbers + their decorations ─────────
+// -- State field: current set of error line numbers + their decorations ---------
 export const errorLinesField = StateField.define<{ lines: number[]; decos: DecorationSet }>({
   create() {
     return { lines: [], decos: Decoration.none };
@@ -61,7 +61,7 @@ export const errorLinesField = StateField.define<{ lines: number[]; decos: Decor
   },
 });
 
-// ── Gutter extension: place the red dot marker on error lines ─────────────────
+// -- Gutter extension: place the red dot marker on error lines -----------------
 export const errorGutter = gutter({
   class: ERROR_GUTTER_CLASS,
   lineMarker(view, line) {
@@ -73,7 +73,7 @@ export const errorGutter = gutter({
   initialSpacer: () => errorMarker,
 });
 
-// ── Parse "ERROR: 0:LINE: …" from WebGL compiler output ──────────────────────
+// -- Parse "ERROR: 0:LINE: …" from WebGL compiler output ----------------------
 // Only returns the first (lowest) error line — cascading parse errors from a
 // single mistake commonly produce spurious reports on every following line.
 export function parseErrorLines(log: string): number[] {

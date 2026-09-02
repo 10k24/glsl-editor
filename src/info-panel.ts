@@ -24,7 +24,7 @@ export function createInfoPanel(container: HTMLElement): (lineText: string, line
   function update(lineText: string) {
     const trimmed = lineText.trim();
 
-    // ── Line explanation (always shown) ──────────────────
+    // -- Line explanation (always shown) ------------------
     const explanation = explainLine(trimmed);
     if (explanation) {
       explainEl.innerHTML = explanation;
@@ -34,7 +34,7 @@ export function createInfoPanel(container: HTMLElement): (lineText: string, line
       explainEl.textContent  = "";
     }
 
-    // ── Token docs ────────────────────────────────────────
+    // -- Token docs ----------------------------------------
     const result = findBestDocForLine(trimmed);
     if (result) {
       const { token: tok, doc } = result;

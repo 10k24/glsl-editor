@@ -4,7 +4,7 @@ import type { Page } from "@playwright/test";
 
 export const EDITOR = ".cm-content";
 
-// ── Timing constants ──────────────────────────────────────────────────────────
+// -- Timing constants ----------------------------------------------------------
 // Reflect production debounce/encode timings in main.ts. Named here so E2E tests
 // don't sprinkle unexplained magic numbers and so intent is explicit.
 //
@@ -21,7 +21,7 @@ export const HISTORY_GROUP_GAP_MS = 600;
 // Wait for CM6 to apply a programmatically dispatched undo/redo before asserting.
 export const CM_COMMAND_SETTLE_MS = 100;
 
-// ── Editor helpers ────────────────────────────────────────────────────────────
+// -- Editor helpers ------------------------------------------------------------
 /** Select all content, then replace it with the given text (single CM6 history group). */
 export async function setContent(page: Page, text: string) {
   await page.click(EDITOR);

@@ -5,7 +5,7 @@
 
 type Explanation = string;
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// -- Helpers ------------------------------------------------------------------
 
 function hesc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -89,7 +89,7 @@ function describeExpr(expr: string): string {
   return e.length < 40 ? `the value ${c(e)}` : "a computed expression";
 }
 
-// ── Main patterns ─────────────────────────────────────────────────────────────
+// -- Main patterns -------------------------------------------------------------
 
 export function explainLine(rawLine: string): Explanation {
   const line = rawLine.trim();

@@ -170,6 +170,8 @@ export function createEditor(
   if (import.meta.env.DEV) {
     window.__cmUndo = () => undo(view);
     window.__cmRedo = () => redo(view);
+    window.__cmSetCursor = (pos: number) => view.dispatch({ selection: { anchor: pos } });
+    window.__cmGetDoc = () => view.state.doc.toString();
   }
 
   return { view, setDoc, setAutocomplete, setErrorLines, getDoc: () => view.state.doc.toString() };
