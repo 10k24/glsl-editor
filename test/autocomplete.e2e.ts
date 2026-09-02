@@ -193,6 +193,25 @@ test("word completion does not offer an out-of-scope variable", async ({ page })
   expect((await fullMenuTexts(page)).some((o) => o.includes("hidden"))).toBe(false);
 });
 
+test("word completion does not offer a variable declared after the cursor", async ({ page }) => {
+  await page.goto("/");
+  await setAutocomplete(page, true);
+  await setContent(
+    page,
+    "float other() {\n" +
+    "  vec2 q = vec2(0.0);\n" +
+    "  vec3 target = vec3(0.0);\n" +
+    "  return vec3(0.0);\n" +
+    "}\n"
+  );
+  // Cursor sits before `target` is declared — GLSL has no hoisting, so
+  // completion must not suggest it yet.
+  await setCursor(page, await liveEndOffset(page, "vec2 q = vec2(0.0);"));
+  await page.keyboard.type("t");
+  await page.waitForTimeout(300);
+  expect((await fullMenuTexts(page)).some((o) => o.includes("target"))).toBe(false);
+});
+
 test("one-line function local resolves to vec2 for dot members", async ({ page }) => {
   await page.goto("/");
   await setAutocomplete(page, true);
@@ -222,4 +241,19 @@ test("one-line function local resolves to vec2 for dot members", async ({ page }
   expect(fileLabels).toContain(".x");
   expect(fileLabels).toContain(".y");
   expect(fileLabels).not.toContain(".z");
+});
+
+test("built-in GLSL variable dot members (gl_FragCoord.xy)", async ({ page }) => {
+  await page.goto("/");
+  await setAutocomplete(page, true);
+  await setContent(page, "void main() {\n  gl_FragCoord\n}\n");
+  await setCursor(page, await liveEndOffset(page, "gl_FragCoord"));
+  await page.keyboard.type(".");
+  await expect(menu(page)).toBeVisible();
+  const labels = await menuOptionLabels(page);
+  // gl_FragCoord is vec4 — must offer all swizzle components
+  expect(labels).toContain(".x");
+  expect(labels).toContain(".y");
+  expect(labels).toContain(".z");
+  expect(labels).toContain(".w");
 });

@@ -50,10 +50,10 @@ yearEl.textContent = String(new Date().getFullYear());
 const fpsEl    = document.getElementById("fps")!;
 const pauseBtn = document.getElementById("pause-btn")!;
 
-// ── Info panel ───────────────────────────────────────────
+// -- Info panel -------------------------------------------
 const updateInfoPanel = createInfoPanel(infoPaneEl);
 
-// ── Define panel ─────────────────────────────────────────
+// -- Define panel -----------------------------------------
 // The panel owns the define overrides; main reads them via getOverrides() so
 // there is a single source of truth (no mirrored copy in this file).
 const updateDefinePanel = createDefinePanel(definePaneEl, () => {
@@ -63,7 +63,7 @@ const updateDefinePanel = createDefinePanel(definePaneEl, () => {
   updateLocationHash(editor.getDoc());
 });
 
-// ── Editor ───────────────────────────────────────────────
+// -- Editor -----------------------------------------------
 const editor = createEditor(editorCmEl, initialDoc, {
   onChange: (doc) => {
     updateDefinePanel.update(doc);
@@ -72,7 +72,7 @@ const editor = createEditor(editorCmEl, initialDoc, {
   onCursorLine: (lineText, lineNum) => updateInfoPanel(lineText, lineNum),
 });
 
-// ── Error display ────────────────────────────────────────
+// -- Error display ----------------------------------------
 function showError(msg: string | null) {
   editor.setErrorLines(msg);
   toggleHidden(statusOk, !!msg);
@@ -81,7 +81,7 @@ function showError(msg: string | null) {
   errorOverlay.textContent = msg ?? "";
 }
 
-// ── Debounced shader update ──────────────────────────────
+// -- Debounced shader update ------------------------------
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 // eslint-disable-next-line prefer-const -- assigned after the closures that capture it are defined
 let renderer: ReturnType<typeof createRenderer>;
@@ -114,7 +114,7 @@ function scheduleUpdate(src: string) {
   }, 280);
 }
 
-// ── Renderer ─────────────────────────────────────────────
+// -- Renderer ---------------------------------------------
 renderer = createRenderer(canvas, showError, (fps) => {
   // Tabular numerals avoid header width jitter as FPS changes. Only updates when
   // the standalone <span id="fps" class="hidden"> completes its first frame,
@@ -128,10 +128,10 @@ renderer?.updateShader(preprocess(initialDoc, activeOverrides()));
 // non-default content, so a stock page keeps a clean URL.
 if (initialDoc !== DEFAULT_SHADER) updateLocationHash(initialDoc);
 
-// ── Trigger initial info panel for line 1 ────────────────
+// -- Trigger initial info panel for line 1 ----------------
 updateInfoPanel(initialDoc.split("\n")[0], 1);
 
-// ── Import shared link, if any ───────────────────────────
+// -- Import shared link, if any ---------------------------
 if (hasSharedLink) {
   decodeShare(location.hash).then((shared) => {
     if (!shared) {
@@ -146,7 +146,7 @@ if (hasSharedLink) {
   });
 }
 
-// ── Autocomplete toggle ──────────────────────────────────
+// -- Autocomplete toggle ----------------------------------
 // Single source of truth: checkbox checked ⇔ localStorage. Persist so the user's
 // preference survives reloads. Autocomplete defaults ON for new visitors.
 const storedAc = loadAutocomplete();
@@ -159,7 +159,7 @@ acCheckbox.addEventListener("change", () => {
   storeAutocomplete(acCheckbox.checked);
 });
 
-// ── Pause/resume rendering ───────────────────────────────
+// -- Pause/resume rendering -------------------------------
 pauseBtn.addEventListener("click", () => {
   const running = pauseBtn.textContent === "Pause";
   renderer?.setRunning(!running);
@@ -168,7 +168,7 @@ pauseBtn.addEventListener("click", () => {
   if (running) fpsEl.classList.add("hidden");
 });
 
-// ── Reset to default shader ──────────────────────────────
+// -- Reset to default shader ------------------------------
 const resetBtn = document.getElementById("reset-btn")!;
 
 resetBtn.addEventListener("click", () => {
@@ -177,7 +177,7 @@ resetBtn.addEventListener("click", () => {
   editor.setDoc(DEFAULT_SHADER);
 });
 
-// ── Share (copy the current shader's URL) ────────────────
+// -- Share (copy the current shader's URL) ----------------
 // The URL is built from the current doc + overrides here, not from the address
 // bar hash: the boot/autosave hash writes are async (encodeShare may compress),
 // so reading location.href could copy a stale or missing #s= link. Default
@@ -205,7 +205,7 @@ shareBtn.addEventListener("click", async () => {
   });
 });
 
-// ── Presentation mode ────────────────────────────────────
+// -- Presentation mode ------------------------------------
 // Full-bleed view of the shader: hide all chrome (header, editor, footer) and the
 // canvas resizes itself each frame, so no explicit resize is needed. A class on
 // #app drives the CSS cascade; Esc is a shortcut for the floating exit button.
@@ -248,5 +248,5 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && appEl.classList.contains("presenting")) setPresenting(false);
 });
 
-// ── Resizable divider ────────────────────────────────────
+// -- Resizable divider ------------------------------------
 createDividerResizer(divider, body, editorPaneEl);

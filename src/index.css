@@ -21,7 +21,7 @@
   }
 }
 
-/* ── Layout ─────────────────────────────────────────────── */
+/* -- Layout ----------------------------------------------- */
 
 .editor-root {
   display: flex;
@@ -84,7 +84,7 @@
   min-height: 0;
 }
 
-/* ── Resize handle ───────────────────────────────────────── */
+/* -- Resize handle ----------------------------------------- */
 
 .resize-handle {
   width: 5px;
@@ -110,7 +110,7 @@
   border-radius: 1px;
 }
 
-/* ── Code editor ─────────────────────────────────────────── */
+/* -- Code editor ------------------------------------------- */
 
 .code-editor-wrap {
   height: 100%;
@@ -127,7 +127,7 @@
   outline: none;
 }
 
-/* ── Shader preview ──────────────────────────────────────── */
+/* -- Shader preview ---------------------------------------- */
 
 .preview-wrap {
   height: 100%;
@@ -142,7 +142,7 @@
   height: 100%;
 }
 
-/* ── Panel group fills body ──────────────────────────────── */
+/* -- Panel group fills body -------------------------------- */
 
 [data-panel-group] {
   height: 100% !important;

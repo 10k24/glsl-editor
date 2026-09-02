@@ -69,7 +69,7 @@ export function preprocess(src: string, overrides: Map<string, boolean>): string
   for (const raw of lines) {
     const line = raw.trim();
 
-    // ── Conditional directives — always evaluated regardless of active state ──
+    // -- Conditional directives — always evaluated regardless of active state --
 
     if (/^#ifdef\s+(\w+)/.test(line)) {
       const name = line.match(/^#ifdef\s+(\w+)/)![1];
@@ -107,7 +107,7 @@ export function preprocess(src: string, overrides: Map<string, boolean>): string
       continue;
     }
 
-    // ── Only process remaining directives and code when in an active branch ──
+    // -- Only process remaining directives and code when in an active branch --
 
     if (!isActive()) {
       out.push(""); // keep line count for error reporting

@@ -54,6 +54,9 @@ export interface VarDecl {
   type: string;
   /** Enclosing function name, or "" for variables at file scope. */
   scope: string;
+  /** Document offset of the line the declaration starts on. Resolution is
+   *  line-granular: the declaration becomes visible from this line onward. */
+  lineStart: number;
 }
 
 // <type> <name> [array] — leading segment of a declaration, possibly preceded
@@ -99,6 +102,26 @@ interface LineScope {
   opened?: { offset: number; scope: string };
 }
 
+/** Single-pass parse result: enclosing scope per line + all declarations. */
+interface Analysis {
+  lines: LineScope[];
+  vars: Map<string, VarDecl[]>;
+}
+
+/**
+ * Parse `src`, memoized by content. One keystroke's completion work re-analyzes
+ * the same doc several times (dot/bracket resolution, scope lookup, word
+ * listing); a content-keyed cache lets one analysis serve them all and stays
+ * correct across every state the editor can hold.
+ */
+let cachedSrc = "";
+let cachedAnalysis: Analysis | null = null;
+function analyze(src: string): Analysis {
+  if (src === cachedSrc && cachedAnalysis) return cachedAnalysis;
+  cachedSrc = src;
+  return (cachedAnalysis = analyzeOnce(src));
+}
+
 /**
  * Walk the source once, in a single pass, producing both the enclosing scope
  * at the start of every line and every variable declaration (function params
@@ -110,19 +133,19 @@ interface LineScope {
  * locals and params are found and correctly scoped. Commented lines (`//`) are
  * skipped, so a declaration inside a comment never registers.
  */
-function analyze(src: string): { lines: LineScope[]; vars: Map<string, VarDecl[]> } {
+function analyzeOnce(src: string): Analysis {
   const vars = new Map<string, VarDecl[]>();
   const lines: LineScope[] = [];
   let scope = ""; // enclosing function name, "" = file scope
   let depth = 0; // brace depth
   const stack: { name: string; baseDepth: number }[] = [];
   let pendingName = "";
-  let pendingParams: Param[] | null = null;
+  let pendingParams: { params: Param[]; lineStart: number } | null = null;
   let lineStart = 0;
 
-  const add = (name: string, type: string, sc: string) => {
+  const add = (name: string, type: string, sc: string, lineStart: number) => {
     const list = vars.get(name) ?? [];
-    list.push({ type, scope: sc });
+    list.push({ type, scope: sc, lineStart });
     vars.set(name, list);
   };
 
@@ -133,24 +156,28 @@ function analyze(src: string): { lines: LineScope[]; vars: Map<string, VarDecl[]
       const fm = line.match(FUNC_HEADER);
 
       if (fm) {
+        // A new header supersedes a pending one whose brace never arrived,
+        // so a later unrelated `{` can't open under a stale name.
+        pendingName = "";
+        pendingParams = null;
         const name = fm[2];
         const params = parseParams(fm[3]);
         if (line.includes("{")) {
           // Body opens on this line (multiline or one-line); open now.
           stack.push({ name, baseDepth: depth + 1 });
           scope = name;
-          for (const p of params) add(p.name, p.type, name);
+          for (const p of params) add(p.name, p.type, name, lineStart);
           lines[lines.length - 1].opened = { offset: raw.indexOf("{"), scope: name };
         } else {
           // Brace is on a later line; hold the params until it arrives.
           pendingName = name;
-          pendingParams = params;
+          pendingParams = { params, lineStart };
         }
       } else if (pendingParams && line.includes("{")) {
         // The pending header's brace arrives on this line (brace-on-next-line).
         stack.push({ name: pendingName, baseDepth: depth + 1 });
         scope = pendingName;
-        for (const p of pendingParams) add(p.name, p.type, pendingName);
+        for (const p of pendingParams.params) add(p.name, p.type, pendingName, pendingParams.lineStart);
         lines[lines.length - 1].opened = { offset: raw.indexOf("{"), scope: pendingName };
         pendingName = "";
         pendingParams = null;
@@ -161,7 +188,7 @@ function analyze(src: string): { lines: LineScope[]; vars: Map<string, VarDecl[]
       const rest = fm ? line.slice(fm[0].length) : line;
       for (const seg of rest.split(";")) {
         const d = seg.match(DECL_SEGMENT);
-        if (d && KNOWN_TYPES.has(d[1])) add(d[2], d[1], scope);
+        if (d && KNOWN_TYPES.has(d[1])) add(d[2], d[1], scope, lineStart);
       }
 
       depth += braces(line);
@@ -193,28 +220,61 @@ function lineScopes(src: string): LineScope[] {
 }
 
 /**
- * Resolve the effective type of `name` visible at `scope` (a function name, or
- * "" for file scope). A file-scope declaration is always visible; a declaration
- * in the same function shadows it. Out-of-scope declarations (other functions)
- * are never consulted. Among the visible candidates the later one wins.
+ * The line `pos` falls on, found by binary search. Position-aware resolution
+ * uses its start offset to decide which declarations are visible.
  */
-export function resolveVariable(src: string, scope: string, name: string): string | null {
+function lineContaining(lines: LineScope[], pos: number): LineScope {
+  let lo = 0;
+  let hi = lines.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (lines[mid].lineStart <= pos) lo = mid + 1;
+    else hi = mid;
+  }
+  return lines[lo - 1];
+}
+
+/**
+ * Resolve the effective type of `name` visible at `scope` (a function name, or
+ * "" for file scope) from `pos` in the doc. Only declarations at or before
+ * `pos`'s line are visible (GLSL has no hoisting), so a variable declared after
+ * the cursor is neither resolved nor offered. A file-scope declaration is seen
+ * by every scope; a declaration in the same function shadows it. Out-of-scope
+ * declarations (other functions) are never consulted. Among the visible
+ * candidates the later one wins. `pos` defaults to the end of the doc.
+ */
+export function resolveVariable(
+  src: string,
+  scope: string,
+  name: string,
+  pos = Number.POSITIVE_INFINITY,
+): string | null {
   const decls = scanVariables(src).get(name);
   if (!decls) return null;
+  const posLine = lineContaining(lineScopes(src), pos).lineStart;
   let type: string | null = null;
   for (const d of decls) {
-    if (d.scope === scope || d.scope === "") type = d.type;
+    if (d.lineStart <= posLine && (scope === "" || d.scope === scope || d.scope === "")) type = d.type;
   }
   return type;
 }
 
-/** All variables visible at `scope`, mapping name → effective type. */
-export function variablesInScope(src: string, scope: string): Map<string, string> {
+/**
+ * All variables visible at `scope` from `pos`, mapping name → effective type.
+ * Same hoisting rule as `resolveVariable`: only declarations at or before
+ * `pos`'s line are included.
+ */
+export function variablesInScope(
+  src: string,
+  scope: string,
+  pos = Number.POSITIVE_INFINITY,
+): Map<string, string> {
   const result = new Map<string, string>();
+  const posLine = lineContaining(lineScopes(src), pos).lineStart;
   for (const [name, decls] of scanVariables(src)) {
     let type: string | null = null;
     for (const d of decls) {
-      if (d.scope === scope || d.scope === "") type = d.type;
+      if (d.lineStart <= posLine && (scope === "" || d.scope === scope || d.scope === "")) type = d.type;
     }
     if (type !== null) result.set(name, type);
   }
@@ -223,16 +283,7 @@ export function variablesInScope(src: string, scope: string): Map<string, string
 
 /** Enclosing function name at document offset `pos`, or "" at file scope. */
 export function enclosingFunction(src: string, pos: number): string {
-  const lines = lineScopes(src);
-  // Binary search for the last line whose start is <= pos.
-  let lo = 0;
-  let hi = lines.length; // lines has a sentinel entry past the last line
-  while (lo < hi) {
-    const mid = (lo + hi) >> 1;
-    if (lines[mid].lineStart <= pos) lo = mid + 1;
-    else hi = mid;
-  }
-  const line = lines[lo - 1];
+  const line = lineContaining(lineScopes(src), pos);
   // A function body may open mid-line (one-line function, `void main() {`), so
   // the scope is the opened function only at/after its `{` offset.
   if (line.opened && pos >= line.lineStart + line.opened.offset) return line.opened.scope;
